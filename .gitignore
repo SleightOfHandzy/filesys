@@ -1,0 +1,9 @@
+*.o
+src/sfs
+src/.deps
+src/config.h
+config.log
+config.status
+sfs.log
+Makefile
+*/Makefile
