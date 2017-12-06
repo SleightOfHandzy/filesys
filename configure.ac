@@ -3,8 +3,8 @@
 
 AC_PREREQ([2.69])
 AC_INIT([fuse-tutorial], [2014-06-12], [joseph@pfeifferfamily.net])
-AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([src/bbfs.c])
+AM_INIT_AUTOMAKE([foreign])
+AC_CONFIG_SRCDIR([src/sfs.c])
 AC_CONFIG_HEADERS([src/config.h])
 
 # Checks for programs.

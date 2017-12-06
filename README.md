@@ -3,6 +3,7 @@
 ## Building
 
 ```bash
+./autogen.sh
 ./configure
 make
 ```
