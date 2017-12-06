@@ -7,8 +7,8 @@
 
 */
 
-#include "params.h"
 #include "block.h"
+#include "params.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -17,18 +17,17 @@
 #include <fuse.h>
 #include <libgen.h>
 #include <limits.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #ifdef HAVE_SYS_XATTR_H
 #include <sys/xattr.h>
 #endif
 
 #include "log.h"
-
 
 ///////////////////////////////////////////////////////////
 //
@@ -46,15 +45,14 @@
  * Introduced in version 2.3
  * Changed in version 2.6
  */
-void *sfs_init(struct fuse_conn_info *conn)
-{
-    fprintf(stderr, "in bb-init\n");
-    log_msg("\nsfs_init()\n");
-    
-    log_conn(conn);
-    log_fuse_context(fuse_get_context());
+void *sfs_init(struct fuse_conn_info *conn) {
+  fprintf(stderr, "in bb-init\n");
+  log_msg("\nsfs_init()\n");
 
-    return SFS_DATA;
+  log_conn(conn);
+  log_fuse_context(fuse_get_context());
+
+  return SFS_DATA;
 }
 
 /**
@@ -64,9 +62,8 @@ void *sfs_init(struct fuse_conn_info *conn)
  *
  * Introduced in version 2.3
  */
-void sfs_destroy(void *userdata)
-{
-    log_msg("\nsfs_destroy(userdata=0x%08x)\n", userdata);
+void sfs_destroy(void *userdata) {
+  log_msg("\nsfs_destroy(userdata=0x%08x)\n", userdata);
 }
 
 /** Get file attributes.
@@ -75,15 +72,13 @@ void sfs_destroy(void *userdata)
  * ignored.  The 'st_ino' field is ignored except if the 'use_ino'
  * mount option is given.
  */
-int sfs_getattr(const char *path, struct stat *statbuf)
-{
-    int retstat = 0;
-    char fpath[PATH_MAX];
-    
-    log_msg("\nsfs_getattr(path=\"%s\", statbuf=0x%08x)\n",
-	  path, statbuf);
-    
-    return retstat;
+int sfs_getattr(const char *path, struct stat *statbuf) {
+  int retstat = 0;
+  char fpath[PATH_MAX];
+
+  log_msg("\nsfs_getattr(path=\"%s\", statbuf=0x%08x)\n", path, statbuf);
+
+  return retstat;
 }
 
 /**
@@ -98,24 +93,19 @@ int sfs_getattr(const char *path, struct stat *statbuf)
  *
  * Introduced in version 2.5
  */
-int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    log_msg("\nsfs_create(path=\"%s\", mode=0%03o, fi=0x%08x)\n",
-	    path, mode, fi);
-    
-    
-    return retstat;
+int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
+  int retstat = 0;
+  log_msg("\nsfs_create(path=\"%s\", mode=0%03o, fi=0x%08x)\n", path, mode, fi);
+
+  return retstat;
 }
 
 /** Remove a file */
-int sfs_unlink(const char *path)
-{
-    int retstat = 0;
-    log_msg("sfs_unlink(path=\"%s\")\n", path);
+int sfs_unlink(const char *path) {
+  int retstat = 0;
+  log_msg("sfs_unlink(path=\"%s\")\n", path);
 
-    
-    return retstat;
+  return retstat;
 }
 
 /** File open operation
@@ -128,14 +118,11 @@ int sfs_unlink(const char *path)
  *
  * Changed in version 2.2
  */
-int sfs_open(const char *path, struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    log_msg("\nsfs_open(path\"%s\", fi=0x%08x)\n",
-	    path, fi);
+int sfs_open(const char *path, struct fuse_file_info *fi) {
+  int retstat = 0;
+  log_msg("\nsfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
 
-    
-    return retstat;
+  return retstat;
 }
 
 /** Release an open file
@@ -152,14 +139,11 @@ int sfs_open(const char *path, struct fuse_file_info *fi)
  *
  * Changed in version 2.2
  */
-int sfs_release(const char *path, struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    log_msg("\nsfs_release(path=\"%s\", fi=0x%08x)\n",
-	  path, fi);
-    
+int sfs_release(const char *path, struct fuse_file_info *fi) {
+  int retstat = 0;
+  log_msg("\nsfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
 
-    return retstat;
+  return retstat;
 }
 
 /** Read data from an open file
@@ -173,14 +157,14 @@ int sfs_release(const char *path, struct fuse_file_info *fi)
  *
  * Changed in version 2.2
  */
-int sfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    log_msg("\nsfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
-	    path, buf, size, offset, fi);
+int sfs_read(const char *path, char *buf, size_t size, off_t offset,
+             struct fuse_file_info *fi) {
+  int retstat = 0;
+  log_msg(
+      "\nsfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
+      path, buf, size, offset, fi);
 
-   
-    return retstat;
+  return retstat;
 }
 
 /** Write data to an open file
@@ -192,40 +176,30 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
  * Changed in version 2.2
  */
 int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
-	     struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    log_msg("\nsfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
-	    path, buf, size, offset, fi);
-    
-    
-    return retstat;
-}
+              struct fuse_file_info *fi) {
+  int retstat = 0;
+  log_msg(
+      "\nsfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
+      path, buf, size, offset, fi);
 
+  return retstat;
+}
 
 /** Create a directory */
-int sfs_mkdir(const char *path, mode_t mode)
-{
-    int retstat = 0;
-    log_msg("\nsfs_mkdir(path=\"%s\", mode=0%3o)\n",
-	    path, mode);
-   
-    
-    return retstat;
-}
+int sfs_mkdir(const char *path, mode_t mode) {
+  int retstat = 0;
+  log_msg("\nsfs_mkdir(path=\"%s\", mode=0%3o)\n", path, mode);
 
+  return retstat;
+}
 
 /** Remove a directory */
-int sfs_rmdir(const char *path)
-{
-    int retstat = 0;
-    log_msg("sfs_rmdir(path=\"%s\")\n",
-	    path);
-    
-    
-    return retstat;
-}
+int sfs_rmdir(const char *path) {
+  int retstat = 0;
+  log_msg("sfs_rmdir(path=\"%s\")\n", path);
 
+  return retstat;
+}
 
 /** Open directory
  *
@@ -234,14 +208,11 @@ int sfs_rmdir(const char *path)
  *
  * Introduced in version 2.3
  */
-int sfs_opendir(const char *path, struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    log_msg("\nsfs_opendir(path=\"%s\", fi=0x%08x)\n",
-	  path, fi);
-    
-    
-    return retstat;
+int sfs_opendir(const char *path, struct fuse_file_info *fi) {
+  int retstat = 0;
+  log_msg("\nsfs_opendir(path=\"%s\", fi=0x%08x)\n", path, fi);
+
+  return retstat;
 }
 
 /** Read directory
@@ -265,80 +236,72 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi)
  *
  * Introduced in version 2.3
  */
-int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
-	       struct fuse_file_info *fi)
-{
-    int retstat = 0;
-    
-    
-    return retstat;
+int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+                off_t offset, struct fuse_file_info *fi) {
+  int retstat = 0;
+
+  return retstat;
 }
 
 /** Release directory
  *
  * Introduced in version 2.3
  */
-int sfs_releasedir(const char *path, struct fuse_file_info *fi)
-{
-    int retstat = 0;
+int sfs_releasedir(const char *path, struct fuse_file_info *fi) {
+  int retstat = 0;
 
-    
-    return retstat;
+  return retstat;
 }
 
-struct fuse_operations sfs_oper = {
-  .init = sfs_init,
-  .destroy = sfs_destroy,
+struct fuse_operations sfs_oper = {.init = sfs_init,
+                                   .destroy = sfs_destroy,
 
-  .getattr = sfs_getattr,
-  .create = sfs_create,
-  .unlink = sfs_unlink,
-  .open = sfs_open,
-  .release = sfs_release,
-  .read = sfs_read,
-  .write = sfs_write,
+                                   .getattr = sfs_getattr,
+                                   .create = sfs_create,
+                                   .unlink = sfs_unlink,
+                                   .open = sfs_open,
+                                   .release = sfs_release,
+                                   .read = sfs_read,
+                                   .write = sfs_write,
 
-  .rmdir = sfs_rmdir,
-  .mkdir = sfs_mkdir,
+                                   .rmdir = sfs_rmdir,
+                                   .mkdir = sfs_mkdir,
 
-  .opendir = sfs_opendir,
-  .readdir = sfs_readdir,
-  .releasedir = sfs_releasedir
-};
+                                   .opendir = sfs_opendir,
+                                   .readdir = sfs_readdir,
+                                   .releasedir = sfs_releasedir};
 
-void sfs_usage()
-{
-    fprintf(stderr, "usage:  sfs [FUSE and mount options] diskFile mountPoint\n");
+void sfs_usage() {
+  fprintf(stderr, "usage:  sfs [FUSE and mount options] diskFile mountPoint\n");
+  abort();
+}
+
+int main(int argc, char *argv[]) {
+  int fuse_stat;
+  struct sfs_state *sfs_data;
+
+  // sanity checking on the command line
+  if ((argc < 3) || (argv[argc - 2][0] == '-') || (argv[argc - 1][0] == '-'))
+    sfs_usage();
+
+  sfs_data = malloc(sizeof(struct sfs_state));
+  if (sfs_data == NULL) {
+    perror("main calloc");
     abort();
-}
+  }
 
-int main(int argc, char *argv[])
-{
-    int fuse_stat;
-    struct sfs_state *sfs_data;
-    
-    // sanity checking on the command line
-    if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
-	sfs_usage();
+  // Pull the diskfile and save it in internal data
+  sfs_data->diskfile = argv[argc - 2];
+  argv[argc - 2] = argv[argc - 1];
+  argv[argc - 1] = NULL;
+  argc--;
 
-    sfs_data = malloc(sizeof(struct sfs_state));
-    if (sfs_data == NULL) {
-	perror("main calloc");
-	abort();
-    }
+  sfs_data->logfile = log_open();
 
-    // Pull the diskfile and save it in internal data
-    sfs_data->diskfile = argv[argc-2];
-    argv[argc-2] = argv[argc-1];
-    argv[argc-1] = NULL;
-    argc--;
-    
-    sfs_data->logfile = log_open();
-    
-    // turn over control to fuse
-    fprintf(stderr, "about to call fuse_main, %s \n", sfs_data->diskfile);
-    fuse_stat = fuse_main(argc, argv, &sfs_oper, sfs_data);
-    fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
-    
-    return fuse_stat;
+  // turn over control to fuse
+  fprintf(stderr, "about to call fuse_main, %s \n", sfs_data->diskfile);
+  fuse_stat = fuse_main(argc, argv, &sfs_oper, sfs_data);
+  fprintf(stderr, "fuse_main returned %d\n", fuse_stat);
+
+  return fuse_stat;
 }

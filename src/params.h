@@ -24,9 +24,9 @@
 #include <limits.h>
 #include <stdio.h>
 struct sfs_state {
-    FILE *logfile;
-    char *diskfile;
+  FILE *logfile;
+  char *diskfile;
 };
-#define SFS_DATA ((struct sfs_state *) fuse_get_context()->private_data)
+#define SFS_DATA ((struct sfs_state *)fuse_get_context()->private_data)
 
 #endif
