@@ -8,6 +8,7 @@
 */
 
 #include "block.h"
+#include "log.h"
 #include "params.h"
 
 #include <ctype.h>
@@ -74,7 +75,8 @@ void sfs_destroy(void *userdata) {
  */
 int sfs_getattr(const char *path, struct stat *statbuf) {
   int retstat = 0;
-  char fpath[PATH_MAX];
+  // following line commented because of -Wunused-variable
+  // char fpath[PATH_MAX];
 
   log_msg("\nsfs_getattr(path=\"%s\", statbuf=0x%08x)\n", path, statbuf);
 
