@@ -48,7 +48,7 @@
  */
 void *sfs_init(struct fuse_conn_info *conn) {
   fprintf(stderr, "in bb-init\n");
-  log_msg("\nsfs_init()\n");
+  log_msg("sfs_init()\n");
 
   log_conn(conn);
   log_fuse_context(fuse_get_context());
@@ -64,7 +64,7 @@ void *sfs_init(struct fuse_conn_info *conn) {
  * Introduced in version 2.3
  */
 void sfs_destroy(void *userdata) {
-  log_msg("\nsfs_destroy(userdata=0x%08x)\n", userdata);
+  log_msg("sfs_destroy(userdata=0x%08x)\n", userdata);
 }
 
 /** Get file attributes.
@@ -78,7 +78,7 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   // following line commented because of -Wunused-variable
   // char fpath[PATH_MAX];
 
-  log_msg("\nsfs_getattr(path=\"%s\", statbuf=0x%08x)\n", path, statbuf);
+  log_msg("sfs_getattr(path=\"%s\", statbuf=0x%08x)\n", path, statbuf);
 
   return retstat;
 }
@@ -97,7 +97,7 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
  */
 int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   int retstat = 0;
-  log_msg("\nsfs_create(path=\"%s\", mode=0%03o, fi=0x%08x)\n", path, mode, fi);
+  log_msg("sfs_create(path=\"%s\", mode=0%03o, fi=0x%08x)\n", path, mode, fi);
 
   return retstat;
 }
@@ -122,7 +122,7 @@ int sfs_unlink(const char *path) {
  */
 int sfs_open(const char *path, struct fuse_file_info *fi) {
   int retstat = 0;
-  log_msg("\nsfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
+  log_msg("sfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
 
   return retstat;
 }
@@ -143,7 +143,7 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
  */
 int sfs_release(const char *path, struct fuse_file_info *fi) {
   int retstat = 0;
-  log_msg("\nsfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
+  log_msg("sfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
 
   return retstat;
 }
@@ -163,7 +163,7 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi) {
   int retstat = 0;
   log_msg(
-      "\nsfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
+      "sfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
       path, buf, size, offset, fi);
 
   return retstat;
@@ -181,7 +181,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
               struct fuse_file_info *fi) {
   int retstat = 0;
   log_msg(
-      "\nsfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
+      "sfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
       path, buf, size, offset, fi);
 
   return retstat;
@@ -190,7 +190,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 /** Create a directory */
 int sfs_mkdir(const char *path, mode_t mode) {
   int retstat = 0;
-  log_msg("\nsfs_mkdir(path=\"%s\", mode=0%3o)\n", path, mode);
+  log_msg("sfs_mkdir(path=\"%s\", mode=0%3o)\n", path, mode);
 
   return retstat;
 }
@@ -212,7 +212,7 @@ int sfs_rmdir(const char *path) {
  */
 int sfs_opendir(const char *path, struct fuse_file_info *fi) {
   int retstat = 0;
-  log_msg("\nsfs_opendir(path=\"%s\", fi=0x%08x)\n", path, fi);
+  log_msg("sfs_opendir(path=\"%s\", fi=0x%08x)\n", path, fi);
 
   return retstat;
 }
