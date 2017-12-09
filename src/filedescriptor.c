@@ -3,7 +3,12 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
+
+#ifdef HAVE_STRUCT_H
 #include <struct.h>
+#else
+#define fldsiz(type, member) sizeof(((type*)0)->member)
+#endif
 
 struct node {
   int fd;
