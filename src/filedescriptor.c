@@ -7,7 +7,7 @@
 #ifdef HAVE_STRUCT_H
 #include <struct.h>
 #else
-#define fldsiz(type, member) sizeof(((type*)0)->member)
+#define fldsiz(type, member) sizeof(((struct type*)0)->member)
 #endif
 
 struct node {
