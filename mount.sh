@@ -1,7 +1,7 @@
 #!/bin/bash
 
 diskfile="example/diskfile"
-size=10g
+size=1g
 
 if ! [ -f $diskfile ]; then
   uname="$(uname)"

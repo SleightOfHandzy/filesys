@@ -8,11 +8,13 @@
 #ifndef _BLOCK_H_
 #define _BLOCK_H_
 
+#include <stdint.h>
+
 #define BLOCK_SIZE 512
 
-void disk_open(const char *diskfile_path);
-void disk_close();
-int block_read(const int block_num, void *buf);
-int block_write(const int block_num, const void *buf);
+typedef char sfs_block_t[BLOCK_SIZE];
+
+int block_read(int fd, uint64_t block_num, void* block);
+int block_write(int fd, uint64_t block_num, const void* block);
 
 #endif

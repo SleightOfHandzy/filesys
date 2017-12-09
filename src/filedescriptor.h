@@ -8,8 +8,12 @@
 #ifndef _FILEDESCRIPTOR_H_
 #define _FILEDESCRIPTOR_H_
 
+#include <stdint.h>
+
 struct sfs_fd {
   int fd;
+  uint64_t inumber;
+  uint64_t flags;
 };
 
 /**
@@ -20,7 +24,7 @@ struct sfs_fd {
 void* sfs_filedescriptor_pool_init();
 
 /**
- * frees used memory by filedescriptors
+ * frees memory used by filedescriptors
  */
 void sfs_filedescriptor_pool_deinit(void* pool);
 

@@ -123,6 +123,29 @@ struct sfs_fd* sfs_filedescriptor_allocate(void* arg) {
   return sfs_filedescriptor_allocate(pool);
 }
 
+struct sfs_fd* sfs_filedescriptor_get_from_fd(void* arg, int fd) {
+  struct pool* pool = (struct pool*)arg;
+  assert(pool != NULL);
+  assert(fd >= 0);
+
+  int slots_per_slab = fldsiz(slab, data) / sizeof(union slot);
+  int slab_index = fd / slots_per_slab;
+  int slot_index = fd % slots_per_slab;
+
+  struct slab* s = pool->slab_head;
+  for (int i = 0; i < slab_index; ++i) {
+    if (s == NULL) {
+      return NULL;
+    }
+    s = s->next;
+  }
+  if (s == NULL) {
+    return NULL;
+  }
+
+  return &s->data[slot_index].s;
+}
+
 void sfs_filedescriptor_free(void* arg, struct sfs_fd* fd) {
   struct pool* pool = (struct pool*)arg;
   assert(pool != NULL);
