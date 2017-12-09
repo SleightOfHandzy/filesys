@@ -386,7 +386,7 @@ void sfs_fs_inode_to_stat(void* arg, const struct sfs_fs_inode* inode,
   struct filesystem* fs = (struct filesystem*)arg;
   assert(fs != NULL);
   assert(inode != NULL);
-  assert(stat != NULL);
+  assert(st != NULL);
 
   st->st_ino = inode->inumber;
   st->st_mode = inode->mode;

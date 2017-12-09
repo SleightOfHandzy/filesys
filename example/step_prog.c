@@ -32,4 +32,6 @@ int main() {
   printf("gonna close a file\n");
   step(ret = close(fd));
   printf("close() returned %d\n", ret);
+
+  return 0;
 }
