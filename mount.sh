@@ -14,4 +14,5 @@ if ! [ -f $diskfile ]; then
   fi
 fi
 
+mkdir -p example/mountdir
 src/sfs $diskfile example/mountdir
