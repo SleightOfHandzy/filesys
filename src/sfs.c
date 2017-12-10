@@ -640,7 +640,13 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
   uint64_t first_block_offset = offset % BLOCK_SIZE;
   uint64_t last_block_len = (offset + size) % BLOCK_SIZE;
   last_block_len = last_block_len == 0 ? BLOCK_SIZE : last_block_len;
-  uint64_t last_block = (offset + size) / BLOCK_SIZE - 1;
+  uint64_t last_block = (offset + size) / BLOCK_SIZE;
+  last_block -= last_block_len == BLOCK_SIZE ? 1 : 0;
+
+  log_msg(
+      "first_block=%llu first_block_offset=%llu last_block_len=%llu "
+      "last_block=%llu\n",
+      first_block, first_block_offset, last_block_len, last_block);
 
   // adjust |buf| to be BLOCK_SIZE aligned
   buf -= first_block_offset;
@@ -730,9 +736,10 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
   uint64_t last_block = (offset + size) / BLOCK_SIZE;
   last_block -= last_block_len == BLOCK_SIZE ? 1 : 0;
 
-  log_msg("aweafewaefw first_block=%" PRIu64 " first_block_offset=%" PRIu64
-          " last_block=%" PRIu64 " last_block_len=%" PRIu64 "\n",
-          first_block, first_block_offset, last_block, last_block_len);
+  log_msg(
+      "first_block=%llu first_block_offset=%llu last_block_len=%llu "
+      "last_block=%llu\n",
+      first_block, first_block_offset, last_block_len, last_block);
 
   // adjust |buf| to be BLOCK_SIZE aligned
   buf -= first_block_offset;
