@@ -55,8 +55,7 @@ void *sfs_init(struct fuse_conn_info *conn) {
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, NULL);
 
-  log_msg("sfs_init()\n");
-
+  log_msg("initializing");
   log_conn(conn);
 
   // create a pool of filedescriptors for associating with inodes
@@ -95,7 +94,7 @@ void sfs_destroy(void *userdata) {
 
   SFS_LOCK_OR_FAIL(sfs_data, );
 
-  log_msg("sfs_destroy(userdata=0x%08x)\n", userdata);
+  log_msg("userdata=%p", userdata);
 
   if (sfs_data->fs != NULL) {
     sfs_fs_close(sfs_data->fs);
@@ -109,7 +108,7 @@ void sfs_destroy(void *userdata) {
     sfs_filedescriptor_pool_deinit(sfs_data->fd_pool);
   }
 
-  log_msg("sfs_destroy() at end\n");
+  log_msg("successfully cleaned up");
   fclose(sfs_data->logfile);
   SFS_UNLOCK_OR_FAIL(sfs_data, );
   pthread_mutex_destroy(&sfs_data->mu);
@@ -125,13 +124,13 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("sfs_getattr(path=\"%s\", statbuf=0x%08x)\n", path, statbuf);
+  log_msg("path=\"%s\", statbuf=%p", path, statbuf);
 
   // no additional directories yet
   char *path_copy = strdup(path);
   if (strcmp(dirname(path_copy), "/") != 0) {
     free(path_copy);
-    log_msg("sfs_getattr() ENOENT\n");
+    log_msg("returning ENOENT");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;
   }
@@ -142,7 +141,7 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   strncpy(name_buf, path, PATH_MAX);
   const char *name = basename(name_buf);
   if (strlen(name) > 255) {
-    log_msg("sfs_getattr() ENAMETOOLONG\n");
+    log_msg("returning ENAMETOOLONG");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENAMETOOLONG;
   }
@@ -151,7 +150,7 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   struct sfs_fs_inode directory;
   struct sfs_fs_inode file;
   if (sfs_dir_root(sfs_data->fs, &directory)) {
-    log_msg("sfs_getattr() couldn't get root inode\n");
+    log_msg("couldn't get root inode");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;  // technically "/" couldn't be found?
   }
@@ -169,7 +168,7 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   uint64_t found_inumber = 0;
   void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
   if (iter == NULL) {
-    log_msg("sfs_getattr() sfs_dir_iterate failed\n");
+    log_msg("sfs_dir_iterate failed");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -177,14 +176,13 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   while ((iter = sfs_dir_iternext(iter, &direntry, NULL)) != NULL) {
     if (strncmp(direntry->name, name, 256) == 0) {
       if (sfs_dir_iterclose(iter)) {
-        log_msg("sfs_getattr() sfs_dir_iterclose failed");
+        log_msg("sfs_dir_iterclose failed");
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
 
       if (sfs_fs_read_inode(sfs_data->fs, direntry->inumber, &file)) {
-        log_msg("sfs_getattr() error opening inode %" PRIu64 "\n",
-                found_inumber);
+        log_msg("error opening inode %" PRIu64, found_inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -195,7 +193,7 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
     }
   }
 
-  log_msg("sfs_getattr() ENOENT\n");
+  log_msg("returning ENOENT");
   SFS_UNLOCK_OR_FAIL(sfs_data, -1);
   return -ENOENT;
 }
@@ -216,13 +214,13 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("sfs_create(path=\"%s\", mode=0%03o, fi=0x%08x)\n", path, mode, fi);
+  log_msg("path=\"%s\", mode=0%03o, fi=%p", path, mode, fi);
 
   // no additional directories yet
   char *path_copy = strdup(path);
   if (strcmp(dirname(path_copy), "/") != 0) {
     free(path_copy);
-    log_msg("sfs_create() ENOENT\n");
+    log_msg("ENOENT");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;
   }
@@ -233,7 +231,7 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   strncpy(name_buf, path, PATH_MAX);
   const char *name = basename(name_buf);
   if (strlen(name) > 255) {
-    log_msg("sfs_create() ENAMETOOLONG\n");
+    log_msg("returning ENAMETOOLONG");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENAMETOOLONG;
   }
@@ -242,7 +240,7 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   struct sfs_fs_inode directory;
   struct sfs_fs_inode file;
   if (sfs_dir_root(sfs_data->fs, &directory)) {
-    log_msg("sfs_create() couldn't get root inode\n");
+    log_msg("couldn't get root inode");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;  // technically "/" couldn't be found?
   }
@@ -253,7 +251,7 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   uint64_t found_inumber = 0;
   void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
   if (iter == NULL) {
-    log_msg("sfs_create() sfs_dir_iterate failed\n");
+    log_msg("sfs_dir_iterate failed");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -263,7 +261,7 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
       found_inumber = direntry->inumber;
 
       if (sfs_dir_iterclose(iter)) {
-        log_msg("sfs_create() sfs_dir_iterclose failed");
+        log_msg("sfs_dir_iterclose failed");
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -276,16 +274,14 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
 
       // up the link count
       if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &file)) {
-        log_msg("sfs_create() error opening inode %" PRIu64 "\n",
-                found_inumber);
+        log_msg("error opening inode %" PRIu64, found_inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
       ++file.links;
       file.change_time = time(NULL);
       if (sfs_fs_write_inode(sfs_data->fs, &file)) {
-        log_msg("sfs_create() error writing inode %" PRIu64 "\n",
-                found_inumber);
+        log_msg("error writing inode %" PRIu64, found_inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -315,12 +311,12 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
       file.block_pointers[i] = 0;
     }
     if (sfs_fs_write_inode(sfs_data->fs, &file)) {
-      log_msg("sfs_create() error writing inode\n");
+      log_msg("error writing inode");
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
     }
     if (sfs_dir_link(sfs_data->fs, &directory, name, &file)) {
-      log_msg("sfs_create() error linking file to directory\n");
+      log_msg("error linking file to directory");
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
     }
@@ -334,7 +330,7 @@ int sfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   }
   fd->inumber = found_inumber;
   fd->flags = fi->flags;
-  log_msg("file_descriptor:\n");
+  log_msg("file_descriptor:");
   log_struct(fd, fd, "%d");
   log_struct(fd, inumber, "%" PRIu64);
   log_struct(fd, flags, "%" PRIu64);
@@ -349,13 +345,13 @@ int sfs_unlink(const char *path) {
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("sfs_unlink(path=\"%s\")\n", path);
+  log_msg("path=\"%s\"", path);
 
   // no additional directories yet
   char *path_copy = strdup(path);
   if (strcmp(dirname(path_copy), "/") != 0) {
     free(path_copy);
-    log_msg("sfs_unlink() ENOENT\n");
+    log_msg("returning ENOENT");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;
   }
@@ -366,7 +362,7 @@ int sfs_unlink(const char *path) {
   strncpy(name_buf, path, PATH_MAX);
   const char *name = basename(name_buf);
   if (strlen(name) > 255) {
-    log_msg("sfs_unlink() ENAMETOOLONG\n");
+    log_msg("returning ENAMETOOLONG");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENAMETOOLONG;
   }
@@ -374,7 +370,7 @@ int sfs_unlink(const char *path) {
   // start at the root directory's inode
   struct sfs_fs_inode directory;
   if (sfs_dir_root(sfs_data->fs, &directory)) {
-    log_msg("sfs_unlink() couldn't get root inode\n");
+    log_msg("couldn't get root inode");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;  // technically "/" couldn't be found?
   }
@@ -390,7 +386,7 @@ int sfs_unlink(const char *path) {
   // find `name` in the directory
   void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
   if (iter == NULL) {
-    log_msg("sfs_unlink() sfs_dir_iterate failed\n");
+    log_msg("sfs_dir_iterate failed");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -401,13 +397,13 @@ int sfs_unlink(const char *path) {
       // TODO: if `file` is actually a directory, we must check if the directory
       // is empty first!
       if (sfs_dir_iter_unlink(iter, direntry)) {
-        log_msg("sfs_unlink() sfs_dir_iter_unlink failed");
+        log_msg("sfs_dir_iter_unlink failed");
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
 
       if (sfs_dir_iterclose(iter)) {
-        log_msg("sfs_unlink() sfs_dir_iterclose failed");
+        log_msg("sfs_dir_iterclose failed");
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -417,7 +413,7 @@ int sfs_unlink(const char *path) {
     }
   }
 
-  log_msg("sfs_unlink() ENOENT\n");
+  log_msg("returning ENOENT");
   SFS_UNLOCK_OR_FAIL(sfs_data, -1);
   return -ENOENT;
 }
@@ -436,13 +432,13 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("sfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
+  log_msg("path=\"%s\", fi=%p", path, fi);
 
   // no additional directories yet
   char *path_copy = strdup(path);
   if (strcmp(dirname(path_copy), "/") != 0) {
     free(path_copy);
-    log_msg("sfs_open() ENOENT\n");
+    log_msg("returning ENOENT");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;
   }
@@ -453,7 +449,7 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
   strncpy(name_buf, path, PATH_MAX);
   const char *name = basename(name_buf);
   if (strlen(name) > 255) {
-    log_msg("sfs_open() ENAMETOOLONG\n");
+    log_msg("returning ENAMETOOLONG");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENAMETOOLONG;
   }
@@ -462,7 +458,7 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
   struct sfs_fs_inode directory;
   struct sfs_fs_inode file;
   if (sfs_dir_root(sfs_data->fs, &directory)) {
-    log_msg("sfs_open() couldn't get root inode\n");
+    log_msg("couldn't get root inode");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -ENOENT;  // technically "/" couldn't be found?
   }
@@ -473,7 +469,7 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
   uint64_t found_inumber = 0;
   void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
   if (iter == NULL) {
-    log_msg("sfs_open() sfs_dir_iterate failed\n");
+    log_msg("sfs_dir_iterate failed");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -483,14 +479,14 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
       found_inumber = direntry->inumber;
 
       if (sfs_dir_iterclose(iter)) {
-        log_msg("sfs_open() sfs_dir_iterclose failed");
+        log_msg("sfs_dir_iterclose failed");
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
 
       // up the link count
       if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &file)) {
-        log_msg("sfs_open() error opening inode %" PRIu64 "\n", found_inumber);
+        log_msg("error opening inode %" PRIu64, found_inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -498,7 +494,7 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
       ++file.links;
       file.change_time = time(NULL);
       if (sfs_fs_write_inode(sfs_data->fs, &file)) {
-        log_msg("sfs_open() error writing inode %" PRIu64 "\n", found_inumber);
+        log_msg("error writing inode %" PRIu64, found_inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -511,7 +507,7 @@ int sfs_open(const char *path, struct fuse_file_info *fi) {
       }
       fd->inumber = file.inumber;
       fd->flags = fi->flags;
-      log_msg("file_descriptor:\n");
+      log_msg("file_descriptor:");
       log_struct(fd, fd, "%d");
       log_struct(fd, inumber, "%" PRIu64);
       log_struct(fd, flags, "%" PRIu64);
@@ -544,25 +540,25 @@ int sfs_release(const char *path, struct fuse_file_info *fi) {
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("sfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
+  log_msg("path=\"%s\", fi=%p", path, fi);
 
   // look up the filedescriptor data from the file handle number
   struct sfs_fd *fd = sfs_filedescriptor_get_from_fd(sfs_data->fd_pool, fi->fh);
   if (fd == NULL) {
-    log_msg("sfs_release() invalid file descriptor\n");
+    log_msg("invalid file descriptor");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
-  log_msg("file_descriptor:\n");
+  log_msg("file_descriptor:");
   log_struct(fd, fd, "%d");
   log_struct(fd, inumber, "%" PRIu64);
   log_struct(fd, flags, "%" PRIu64);
 
   // decrease the link count (deallocate inode if 0 links)
   struct sfs_fs_inode inode;
-  log_msg("inumber %" PRIu64 "\n", fd->inumber);
+  log_msg("inumber %" PRIu64, fd->inumber);
   if (sfs_fs_read_inode(sfs_data->fs, fd->inumber, &inode)) {
-    log_msg("sfs_release() error reading inode %" PRIu64 "\n", fd->inumber);
+    log_msg("error reading inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -571,14 +567,13 @@ int sfs_release(const char *path, struct fuse_file_info *fi) {
   inode.change_time = time(NULL);
   if (inode.links == 0) {
     if (sfs_fs_inode_deallocate(sfs_data->fs, &inode)) {
-      log_msg("sfs_release() error deallocating inode %" PRIu64 "\n",
-              fd->inumber);
+      log_msg("error deallocating inode %" PRIu64, fd->inumber);
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
     }
   } else {
     if (sfs_fs_write_inode(sfs_data->fs, &inode)) {
-      log_msg("sfs_release() error writing inode %" PRIu64 "\n", fd->inumber);
+      log_msg("error writing inode %" PRIu64, fd->inumber);
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
     }
@@ -607,9 +602,8 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg(
-      "sfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
-      path, buf, size, offset, fi);
+  log_msg("path=\"%s\", buf=%p, size=%zu, offset=%zd, fi=%p", path,
+          buf, size, offset, fi);
 
   if (size == 0) {
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
@@ -618,20 +612,20 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
 
   struct sfs_fd *fd = sfs_filedescriptor_get_from_fd(sfs_data->fd_pool, fi->fh);
   if (fd == NULL) {
-    log_msg("sfs_read() invalid filedescriptor %d\n", fi->fh);
+    log_msg("sfs_read() invalid filedescriptor %" PRIu64, fi->fh);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
 
   struct sfs_fs_inode inode;
   if (sfs_fs_read_inode(sfs_data->fs, fd->inumber, &inode)) {
-    log_msg("sfs_read() error reading inode %" PRIu64 "\n", fd->inumber);
+    log_msg("sfs_read() error reading inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
   inode.access_time = time(NULL);
   if (sfs_fs_write_inode(sfs_data->fs, &inode)) {
-    log_msg("sfs_read() error writing inode %" PRIu64 "\n", fd->inumber);
+    log_msg("sfs_read() error writing inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -645,7 +639,7 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
 
   log_msg(
       "first_block=%llu first_block_offset=%llu last_block_len=%llu "
-      "last_block=%llu\n",
+      "last_block=%llu",
       first_block, first_block_offset, last_block_len, last_block);
 
   // adjust |buf| to be BLOCK_SIZE aligned
@@ -667,8 +661,7 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
                        : tmp_block;
 
     if (sfs_fs_inode_block_read(sfs_data->fs, &inode, iblock, target)) {
-      log_msg("sfs_read() error reading iblock %" PRIu64 " from inode %" PRIu64
-              "\n",
+      log_msg("sfs_read() error reading iblock %" PRIu64 " from inode %" PRIu64,
               iblock, inode.inumber);
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
@@ -696,9 +689,8 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg(
-      "sfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
-      path, buf, size, offset, fi);
+  log_msg("path=\"%s\", buf=%p, size=%zu, offset=%zd, fi=%p", path,
+          buf, size, offset, fi);
 
   if (size == 0) {
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
@@ -707,14 +699,14 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 
   struct sfs_fd *fd = sfs_filedescriptor_get_from_fd(sfs_data->fd_pool, fi->fh);
   if (fd == NULL) {
-    log_msg("sfs_write() invalid filedescriptor %d\n", fi->fh);
+    log_msg("sfs_write() invalid filedescriptor %" PRIu64, fi->fh);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
 
   struct sfs_fs_inode inode;
   if (sfs_fs_read_inode(sfs_data->fs, fd->inumber, &inode)) {
-    log_msg("sfs_write() error reading inode %" PRIu64 "\n", fd->inumber);
+    log_msg("sfs_write() error reading inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -724,7 +716,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
     inode.size = offset + size;
   }
   if (sfs_fs_write_inode(sfs_data->fs, &inode)) {
-    log_msg("sfs_write() error writing inode %" PRIu64 "\n", fd->inumber);
+    log_msg("sfs_write() error writing inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -738,7 +730,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 
   log_msg(
       "first_block=%llu first_block_offset=%llu last_block_len=%llu "
-      "last_block=%llu\n",
+      "last_block=%llu",
       first_block, first_block_offset, last_block_len, last_block);
 
   // adjust |buf| to be BLOCK_SIZE aligned
@@ -762,7 +754,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
     if (slice_a == 0 && slice_b != BLOCK_SIZE) {
       if (sfs_fs_inode_block_read(sfs_data->fs, &inode, iblock, tmp_block)) {
         log_msg("sfs_write() error reading iblock %" PRIu64
-                " from inode %" PRIu64 "\n",
+                " from inode %" PRIu64,
                 iblock, inode.inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
@@ -771,8 +763,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
     }
 
     if (sfs_fs_inode_block_write(sfs_data->fs, &inode, iblock, source)) {
-      log_msg("sfs_write() error writing iblock %" PRIu64 " to inode %" PRIu64
-              "\n",
+      log_msg("sfs_write() error writing iblock %" PRIu64 " to inode %" PRIu64,
               iblock, inode.inumber);
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
@@ -785,13 +776,13 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 
 /** Create a directory */
 int sfs_mkdir(const char *path, mode_t mode) {
-  log_msg("sfs_mkdir(path=\"%s\", mode=0%3o)\n", path, mode);
+  log_msg("path=\"%s\", mode=0%3o", path, mode);
   return 0;
 }
 
 /** Remove a directory */
 int sfs_rmdir(const char *path) {
-  log_msg("sfs_rmdir(path=\"%s\")\n", path);
+  log_msg("path=\"%s\"", path);
 
   if (strcmp(path, "/") == 0) {
     return -1;
@@ -808,7 +799,7 @@ int sfs_rmdir(const char *path) {
  * Introduced in version 2.3
  */
 int sfs_opendir(const char *path, struct fuse_file_info *fi) {
-  log_msg("sfs_opendir(path=\"%s\", fi=0x%08x)\n", path, fi);
+  log_msg("path=\"%s\", fi=%p", path, fi);
 
   if (strcmp(path, "/") != 0) {
     return -ENOENT;
@@ -843,8 +834,8 @@ int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("sfs_readdir(path=%s, buf=%p, filler, offset=%zu, fi=%p)\n", path,
-          buf, offset, fi);
+  log_msg("path=\"%s\", buf=%p, filler, offset=%zd, fi=%p", path, buf, offset,
+          fi);
 
   if (strcmp(path, "/") != 0) {
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
@@ -853,7 +844,7 @@ int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
   struct sfs_fs_inode inode;
   if (sfs_dir_root(sfs_data->fs, &inode)) {
-    log_msg("sfs_getattr() could not open root dir\n");
+    log_msg("could not open root dir");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -861,12 +852,12 @@ int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   // for root directory, hardcode dot and dotdot
   if (strcmp(path, "/") == 0) {
     if (filler(buf, ".", NULL, 0)) {
-      log_msg("sfs_readdir() buffer full\n");
+      log_msg("buffer full");
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return 0;
     }
     if (filler(buf, "..", NULL, 0)) {
-      log_msg("sfs_readdir() buffer full\n");
+      log_msg("buffer full");
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return 0;
     }
@@ -880,7 +871,7 @@ int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   while ((it = sfs_dir_iternext(it, &direntry, &inode2)) != NULL) {
     sfs_fs_inode_to_stat(sfs_data->fs, &inode2, &st);
     if (filler(buf, direntry->name, &st, 0)) {
-      log_msg("sfs_readdir() buffer full\n");
+      log_msg("buffer full");
       break;
     }
   }
@@ -953,8 +944,7 @@ int main(int argc, char *argv[]) {
   sfs_data->disk = open(sfs_data->diskfile, O_RDWR, S_IRUSR | S_IWUSR);
   if (sfs_data->disk < 0) {
     perror("open() error; file must exist and be preallocated");
-    log_msg("sfs_fs_open_diskfile() opening file \"%s\" failed\n",
-            sfs_data->diskfile);
+    log_msg("opening file \"%s\" failed", sfs_data->diskfile);
     exit(EXIT_FAILURE);
   }
 

@@ -13,7 +13,7 @@ int sfs_dir_root(void* fs, struct sfs_fs_inode* inode) {
   assert(inode != NULL);
 
   if (sfs_fs_read_inode(fs, 1, inode)) {
-    log_msg("sfs_dir_root() error reading root directory inode\n");
+    log_msg("error reading root directory inode");
     return -1;
   }
 
@@ -65,14 +65,12 @@ void* sfs_dir_iternext(void* arg, struct sfs_dir_entry** direntry,
     if (it->entry == 0) {
       if (sfs_fs_inode_block_read(it->fs, it->inode, it->iblock,
                                   it->cached_block)) {
-        log_msg("sfs_dir_iternext() unable to read block %" PRIu64 "\n",
-                it->iblock);
+        log_msg("unable to read block %" PRIu64, it->iblock);
         goto end;
       }
       it->inode->access_time = time(NULL);
       if (sfs_fs_write_inode(it->fs, it->inode)) {
-        log_msg("sfs_dir_iternext() unable write inode %" PRIu64 "\n",
-                it->inode->inumber);
+        log_msg("unable write inode %" PRIu64, it->inode->inumber);
         goto end;
       }
     }
@@ -83,7 +81,7 @@ void* sfs_dir_iternext(void* arg, struct sfs_dir_entry** direntry,
         // write to the output inode if provided
         if (inode != NULL) {
           if (sfs_fs_read_inode(it->fs, arr[it->entry].inumber, inode)) {
-            log_msg("sfs_dir_iternext() error reading directory entry inode\n");
+            log_msg("error reading directory entry inode");
             goto end;
           }
         }
@@ -112,22 +110,19 @@ int sfs_dir_iter_unlink(void* arg, struct sfs_dir_entry* direntry) {
 
   struct sfs_fs_inode inode;
   if (sfs_fs_read_inode(it->fs, direntry->inumber, &inode)) {
-    log_msg("sfs_dir_iter_unlink() error reading inode %" PRIu64 "\n",
-            inode.inumber);
+    log_msg("error reading inode %" PRIu64, inode.inumber);
     return -1;
   }
   --inode.links;
   inode.change_time = time(NULL);
   if (inode.links == 0) {
     if (sfs_fs_inode_deallocate(it->fs, &inode)) {
-      log_msg("sfs_dir_iter_unlink() error deallocating inode %" PRIu64 "\n",
-              inode.inumber);
+      log_msg("error deallocating inode %" PRIu64, inode.inumber);
       return -1;
     }
   } else {
     if (sfs_fs_write_inode(it->fs, &inode)) {
-      log_msg("sfs_dir_iter_unlink() error writing inode %" PRIu64 "\n",
-              inode.inumber);
+      log_msg("error writing inode %" PRIu64, inode.inumber);
       return -1;
     }
   }
@@ -136,14 +131,12 @@ int sfs_dir_iter_unlink(void* arg, struct sfs_dir_entry* direntry) {
   direntry->inumber = 0;
   it->inode->modified_time = time(NULL);
   if (sfs_fs_write_inode(it->fs, it->inode)) {
-    log_msg("sfs_dir_iter_unlink() error writing inode %" PRIu64 "\n",
-            inode.inumber);
+    log_msg("error writing inode %" PRIu64, inode.inumber);
     return -1;
   }
   if (sfs_fs_inode_block_write(it->fs, it->inode, it->iblock,
                                it->cached_block)) {
-    log_msg("sfs_dir_iter_unlink() error writing inode %" PRIu64 "\n",
-            inode.inumber);
+    log_msg("error writing inode %" PRIu64, inode.inumber);
     return -1;
   }
 
@@ -164,7 +157,7 @@ int sfs_dir_link(void* fs, struct sfs_fs_inode* directory, const char* name,
   assert(inode != NULL);
 
   if (strlen(name) > 255) {
-    log_msg("sfs_dir_link() name too long\n");
+    log_msg("name too long");
     return -1;
   }
 
@@ -172,7 +165,7 @@ int sfs_dir_link(void* fs, struct sfs_fs_inode* directory, const char* name,
   struct sfs_dir_entry* arr = (struct sfs_dir_entry*)tmp_block;
   for (uint64_t i = 0; i < directory->size / BLOCK_SIZE; ++i) {
     if (sfs_fs_inode_block_read(fs, directory, i, tmp_block)) {
-      log_msg("sfs_dir_link() error reading directory block %" PRIu64 "\n", i);
+      log_msg("error reading directory block %" PRIu64, i);
       return -1;
     }
     for (uint64_t j = 0; j < BLOCK_SIZE / sizeof(struct sfs_dir_entry); ++j) {
@@ -180,18 +173,17 @@ int sfs_dir_link(void* fs, struct sfs_fs_inode* directory, const char* name,
         arr[j].inumber = inode->inumber;
         strncpy(arr[j].name, name, 256);
         if (sfs_fs_inode_block_write(fs, directory, i, tmp_block)) {
-          log_msg("sfs_dir_link() error writing directory block %" PRIu64 "\n",
-                  i);
+          log_msg("error writing directory block %" PRIu64, i);
           return -1;
         }
         ++inode->links;
         directory->modified_time = inode->change_time = time(NULL);
         if (sfs_fs_write_inode(fs, directory)) {
-          log_msg("sfs_dir_link() error updating mtime on directory\n");
+          log_msg("error updating mtime on directory");
           return -1;
         }
         if (sfs_fs_write_inode(fs, inode)) {
-          log_msg("sfs_dir_link() error updating links on inode\n");
+          log_msg("error updating links on inode");
           return -1;
         }
         return 0;
@@ -204,21 +196,21 @@ int sfs_dir_link(void* fs, struct sfs_fs_inode* directory, const char* name,
   strncpy(arr[0].name, name, 256);
   if (sfs_fs_inode_block_write(fs, directory, directory->size / BLOCK_SIZE,
                                tmp_block)) {
-    log_msg("sfs_dir_link() error adding directory block %" PRIu64 "\n",
+    log_msg("error adding directory block %" PRIu64,
             directory->size / BLOCK_SIZE + 1);
     return -1;
   }
   directory->size += BLOCK_SIZE;
   directory->modified_time = time(NULL);
   if (sfs_fs_write_inode(fs, directory)) {
-    log_msg("sfs_dir_link() error updating directory\n");
+    log_msg("error updating directory");
     return -1;
   }
 
   ++inode->links;
   inode->change_time = time(NULL);
   if (sfs_fs_write_inode(fs, inode)) {
-    log_msg("sfs_dir_link() error updating links on inode\n");
+    log_msg("error updating links on inode");
     return -1;
   }
 

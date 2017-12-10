@@ -30,11 +30,11 @@ struct filesystem {
 
 static int write_superblock(int disk,
                             const struct sfs_fs_superblock* superblock) {
-  log_msg("write_superblock()\n");
+  log_msg("writing superblock");
   sfs_block_t tmp_block = {0};
   memcpy(tmp_block, superblock, sizeof(struct sfs_fs_superblock));
   if (block_write(disk, 0, tmp_block) != BLOCK_SIZE) {
-    log_msg("write_superblock() error writing block\n");
+    log_msg("error writing block");
     return -1;
   }
   return 0;
@@ -48,25 +48,24 @@ static int format_fs(int disk, struct sfs_fs_superblock* superblock) {
   assert(disk >= 0);
   assert(superblock != NULL);
 
-  log_msg("format_fs() formatting filesystem\n");
+  log_msg("formatting filesystem");
 
   // get the size of the disk
   struct stat st;
   if (fstat(disk, &st) < 0) {
     perror("fstat() error");
-    log_msg("format_fs() fstat failure\n");
+    log_msg("format_fs() fstat failure");
     return -1;
   }
   off_t disk_size = st.st_size;
   uint64_t blocks = disk_size / BLOCK_SIZE;
   if (blocks < 3) {
     fprintf(stderr, "disk file too small to use as filesystem\n");
-    log_msg("format_fs() disk had only %" PRIu32 " blocks\n", blocks);
+    log_msg("disk had only %" PRIu64 " blocks", blocks);
     return -1;
   }
 
-  log_msg("format_fs() partitioning %jd bytes into %d blocks\n", disk_size,
-          blocks);
+  log_msg("partitioning %zd bytes into %" PRIu64 " blocks", disk_size, blocks);
 
   memcpy(&superblock->signature, SFS_FILE_TYPE_SIGNATURE,
          sizeof(SFS_FILE_TYPE_SIGNATURE));
@@ -83,10 +82,10 @@ static int format_fs(int disk, struct sfs_fs_superblock* superblock) {
   superblock->free_blocks_head = 2 + superblock->inode_table_blocks;
   superblock->free_inode_head = 2;
 
-  log_msg("format_fs() %" PRIu64 " blocks for inodes (%" PRIu64 " inodes)\n",
+  log_msg("%" PRIu64 " blocks for inodes (%" PRIu64 " inodes)",
           superblock->inode_table_blocks, superblock->inodes);
 
-  log_msg("format_fs() zeroing inode table blocks\n");
+  log_msg("zeroing inode table blocks");
   sfs_block_t tmp_block = {0};
   uint64_t next_free = 3;  // follow the white rabbit on this rh
   for (uint64_t i = 1; i < superblock->inode_table_blocks + 1; ++i) {
@@ -115,7 +114,7 @@ static int format_fs(int disk, struct sfs_fs_superblock* superblock) {
 
     if (block_write(disk, i, tmp_block) != BLOCK_SIZE) {
       fprintf(stderr, "error initializing inodes\n");
-      log_msg("format_fs() error initializing inode block %d\n", i);
+      log_msg("error initializing inode block %" PRIu64, i);
       return -1;
     }
   }
@@ -129,7 +128,7 @@ static int format_fs(int disk, struct sfs_fs_superblock* superblock) {
   uint64_t first_free_block =
       superblock->free_blocks_head + free_blocks -
       (free_blocks * slots_per_block / (slots_per_block + 1));
-  log_msg("format_fs() writing free space index\n");
+  log_msg("writing free space index");
   uint64_t cur_index_block = superblock->free_blocks_head;
   uint64_t cur_index_block_pos = 0;
   for (uint64_t i = first_free_block; i < superblock->blocks; ++i) {
@@ -158,7 +157,7 @@ static int format_fs(int disk, struct sfs_fs_superblock* superblock) {
     if (cur_index_block_pos == BLOCK_SIZE / sizeof(uint64_t)) {
       if (block_write(disk, cur_index_block, tmp_block) != BLOCK_SIZE) {
         fprintf(stderr, "error initializing free blocks index\n");
-        log_msg("format_fs() error initializing free block index %d\n",
+        log_msg("error initializing free block index %" PRIu64,
                 cur_index_block);
         return -1;
       }
@@ -182,7 +181,7 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
   struct filesystem* fs = malloc(sizeof(struct filesystem));
   if (fs == NULL) {
     perror("malloc() failure");
-    log_msg("sfs_fs_open_disk() malloc failure\n");
+    log_msg("malloc failure");
     return NULL;
   }
   // mark unsetup field values
@@ -193,8 +192,8 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
   sfs_block_t superblock_data;
   if (block_read(fs->disk, 0, superblock_data) != BLOCK_SIZE) {
     perror("block_read() error; couldn't read superblock");
-    log_msg("sfs_fs_open_disk() couldn't read superblock\n");
-    free (fs);
+    log_msg("couldn't read superblock");
+    free(fs);
     return NULL;
   }
 
@@ -209,10 +208,10 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
     if (!maybe_format) {
       log_msg(
           "sfs_fs_open_disk() disk was unformatted and maybe_format is "
-          "false\n");
+          "false");
     }
     if (format_fs(fs->disk, &fs->superblock) != 0) {
-      free (fs);
+      free(fs);
       return NULL;
     }
   } else {
@@ -221,8 +220,9 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
 
   time_t create_time = (time_t)superblock->create_time;
   // asctime() has '\n' at the end
-  log_msg("sfs_fs_open_disk() opened fs created at %s",
-          asctime(localtime(&create_time)));
+  char* t = asctime(localtime(&create_time));
+  t[strlen(t)-1] = '\0';
+  log_msg("sfs_fs_open_disk() opened fs created at %s", t);
 
   return fs;
 }
@@ -235,13 +235,13 @@ int sfs_fs_close(void* arg) {
   if (fs->inode_cache.dirty) {
     if (block_write(fs->disk, fs->inode_cache.block_number,
                     fs->inode_cache.data) != BLOCK_SIZE) {
-      log_msg("sfs_fs_close() block_write() write-back failed\n");
+      log_msg("block_write() write-back failed");
       return -1;
     }
   }
 
   if (write_superblock(fs->disk, &fs->superblock)) {
-    log_msg("sfs_fs_close() failed to write superblock\n");
+    log_msg("failed to write superblock");
   }
 
   free(fs);
@@ -256,17 +256,17 @@ int sfs_fs_inode_allocate(void* arg, struct sfs_fs_inode* inode) {
 
   uint64_t inumber = fs->superblock.free_inode_head;
   if (inumber == 0) {
-    log_msg("sfs_fs_inode_allocate() out of free inodes\n");
+    log_msg("out of free inodes");
     return -1;
   }
   if (sfs_fs_read_inode(fs, inumber, inode)) {
-    log_msg("sfs_fs_inode_allocate() could not read allocated inode\n");
+    log_msg("could not read allocated inode");
     return -1;
   }
   // hide next pointer in `size` member
   fs->superblock.free_inode_head = inode->size;
   if (write_superblock(fs->disk, &fs->superblock)) {
-    log_msg("sfs_fs_inode_allocate() could not write superblock\n");
+    log_msg("could not write superblock");
     return -1;
   }
 
@@ -282,20 +282,19 @@ int sfs_fs_inode_deallocate(void* arg, struct sfs_fs_inode* inode) {
   // hide next pointer in `size` member
   inode->size = fs->superblock.free_inode_head;
   if (sfs_fs_write_inode(fs, inode)) {
-    log_msg("sfs_fs_inode_deallocate() could not write allocated inode\n");
+    log_msg("could not write allocated inode");
     return -1;
   }
   fs->superblock.free_inode_head = inode->inumber;
   if (write_superblock(fs->disk, &fs->superblock)) {
-    log_msg("sfs_fs_inode_deallocate() could not write superblock\n");
+    log_msg("could not write superblock");
     return -1;
   }
 
   for (int i = 0; i < SFS_NDIR_BLOCKS; ++i) {
     if (inode->block_pointers[i] != 0) {
       if (sfs_fs_free_block(fs, inode->block_pointers[i])) {
-        log_msg("sfs_fs_inode_deallocate() error freeing block %" PRIu64 "\n",
-                inode->block_pointers[i]);
+        log_msg("error freeing block %" PRIu64, inode->block_pointers[i]);
         return -1;
       }
     }
@@ -320,8 +319,7 @@ int sfs_fs_read_inode(void* arg, uint64_t inumber, struct sfs_fs_inode* inode) {
     if (fs->inode_cache.dirty) {
       if (block_write(fs->disk, fs->inode_cache.block_number,
                       fs->inode_cache.data) != BLOCK_SIZE) {
-        log_msg("in sfs_fs_read_inode(), block_write() write-back failed:%s\n",
-                strerror(errno));
+        log_msg("write-back failed: %s", strerror(errno));
         return -1;
       }
     }
@@ -330,8 +328,7 @@ int sfs_fs_read_inode(void* arg, uint64_t inumber, struct sfs_fs_inode* inode) {
     fs->inode_cache.dirty = false;
     if (block_read(fs->disk, block_number, fs->inode_cache.data) !=
         BLOCK_SIZE) {
-      log_msg("in sfs_fs_read_inode(), block_read() failed: %s\n",
-              strerror(errno));
+      log_msg("block_read failed: %s", strerror(errno));
       return -1;
     }
   }
@@ -356,8 +353,7 @@ int sfs_fs_write_inode(void* arg, const struct sfs_fs_inode* inode) {
     if (fs->inode_cache.dirty) {
       if (block_write(fs->disk, fs->inode_cache.block_number,
                       fs->inode_cache.data) != BLOCK_SIZE) {
-        log_msg("sfs_fs_write_inode(), block_write() write-back failed: %s\n",
-                strerror(errno));
+        log_msg("write-back failed: %s", strerror(errno));
         return -1;
       }
     }
@@ -365,8 +361,7 @@ int sfs_fs_write_inode(void* arg, const struct sfs_fs_inode* inode) {
     fs->inode_cache.block_number = block_number;
     if (block_read(fs->disk, block_number, fs->inode_cache.data) !=
         BLOCK_SIZE) {
-      log_msg("sfs_fs_read_inode(), block_read() failed: %s\n",
-              strerror(errno));
+      log_msg("block_read failed: %s", strerror(errno));
       return -1;
     }
   }
@@ -401,7 +396,7 @@ uint64_t sfs_fs_inode_get_block_number(void* fs, struct sfs_fs_inode* inode,
 
   if (iblock >= SFS_NDIR_BLOCKS) {
     log_msg(
-        "sfs_fs_inode_get_block_number() indirection not yet implemented\n");
+        "sfs_fs_inode_get_block_number() indirection not yet implemented");
     return 0;
   }
 
@@ -417,7 +412,7 @@ int sfs_fs_inode_block_read(void* arg, const struct sfs_fs_inode* inode,
   assert(block != NULL);
 
   if (iblock >= SFS_NDIR_BLOCKS) {
-    log_msg("sfs_fs_inode_block_read() indirection not yet implemented\n");
+    log_msg("indirection not yet implemented");
     return -1;
   }
 
@@ -430,17 +425,17 @@ int sfs_fs_inode_block_read(void* arg, const struct sfs_fs_inode* inode,
   if (block_number < fs->superblock.inode_table_blocks + 1 ||
       block_number >= fs->superblock.blocks) {
     log_msg(
-        "sfs_fs_inode_block_read() block INSIDE inode outside range? "
+        "block INSIDE inode outside range? "
         "(iblock=%" PRIu64 ", block_number=%" PRIu64 ") (range is %" PRIu64
-        " to %" PRIu64 ")\n",
+        " to %" PRIu64 ")",
         iblock, block_number, fs->superblock.inode_table_blocks + 1,
         fs->superblock.blocks);
     return -1;
   }
 
   if (block_read(fs->disk, block_number, block) != BLOCK_SIZE) {
-    log_msg("sfs_fs_inode_block_read() unable to read block %" PRIu64 ": %s\n",
-            block_number, strerror(errno));
+    log_msg("unable to read block %" PRIu64 ": %s", block_number,
+            strerror(errno));
     return -1;
   }
 
@@ -456,19 +451,19 @@ int sfs_fs_inode_block_write(void* arg, struct sfs_fs_inode* inode,
   assert(block != NULL);
 
   if (iblock >= SFS_NDIR_BLOCKS) {
-    log_msg("sfs_fs_inode_block_write() indirection not yet implemented\n");
+    log_msg("indirection not yet implemented");
     return -1;
   }
 
   uint64_t block_number = inode->block_pointers[iblock];
   if (block_number == 0) {
     if (sfs_fs_allocate_block(fs, &block_number)) {
-      log_msg("sfs_fs_inode_block_write() could not allocate block\n");
+      log_msg("could not allocate block");
       return -1;
     }
     inode->block_pointers[iblock] = block_number;
     if (sfs_fs_write_inode(fs, inode)) {
-      log_msg("sfs_fs_inode_block_write() could not update inode\n");
+      log_msg("could not update inode");
       return -1;
     }
   }
@@ -476,17 +471,17 @@ int sfs_fs_inode_block_write(void* arg, struct sfs_fs_inode* inode,
   if (block_number < fs->superblock.inode_table_blocks + 1 ||
       block_number >= fs->superblock.blocks) {
     log_msg(
-        "sfs_fs_inode_block_write() block INSIDE inode outside range? "
+        "block INSIDE inode outside range? "
         "(iblock=%" PRIu64 ", block_number=%" PRIu64 ") (range is %" PRIu64
-        " to %" PRIu64 ")\n",
+        " to %" PRIu64 ")",
         iblock, block_number, fs->superblock.inode_table_blocks + 1,
         fs->superblock.blocks);
     return -1;
   }
 
   if (block_write(fs->disk, block_number, block) != BLOCK_SIZE) {
-    log_msg("sfs_fs_inode_block_write() error writing block %" PRIu64 ": %s\n",
-            block_number, strerror(errno));
+    log_msg("error writing block %" PRIu64 ": %s", block_number,
+            strerror(errno));
     return -1;
   }
 
@@ -501,7 +496,7 @@ int sfs_fs_inode_block_remove(void* arg, struct sfs_fs_inode* inode,
   assert(inode != NULL);
 
   if (iblock >= SFS_NDIR_BLOCKS) {
-    log_msg("sfs_fs_inode_block_write() indirection not yet implemented\n");
+    log_msg("indirection not yet implemented");
     return -1;
   }
 
@@ -510,8 +505,7 @@ int sfs_fs_inode_block_remove(void* arg, struct sfs_fs_inode* inode,
   }
 
   if (sfs_fs_free_block(fs, inode->block_pointers[iblock])) {
-    log_msg("sfs_fs_inode_block_remove() error freeing logical block %" PRIu64
-            "\n",
+    log_msg("sfs_fs_inode_block_remove() error freeing logical block %" PRIu64,
             iblock);
     return -1;
   }
@@ -525,7 +519,7 @@ int sfs_fs_allocate_block(void* arg, uint64_t* block_number) {
   assert(fs->disk >= 0);
 
   if (fs->superblock.free_blocks_head == 0) {
-    log_msg("sfs_fs_allocate_block() failed; no free blocks available\n");
+    log_msg("failed; no free blocks available");
     return -1;
   }
 
@@ -534,7 +528,7 @@ int sfs_fs_allocate_block(void* arg, uint64_t* block_number) {
   sfs_block_t tmp_block;
 
   if (block_read(fs->disk, node, tmp_block) != BLOCK_SIZE) {
-    log_msg("sfs_fs_allocate_block() error reading block %" PRIu64 "\n", node);
+    log_msg("error reading block %" PRIu64, node);
     return -1;
   }
 
@@ -551,8 +545,7 @@ int sfs_fs_allocate_block(void* arg, uint64_t* block_number) {
   if (found_free_block) {
     // write the zeroed slot to the index
     if (block_write(fs->disk, node, tmp_block) != BLOCK_SIZE) {
-      log_msg("sfs_fs_allocate_block() error writing block %" PRIu64 "\n",
-              node);
+      log_msg("error writing block %" PRIu64, node);
       return -1;
     }
   } else {
@@ -562,7 +555,7 @@ int sfs_fs_allocate_block(void* arg, uint64_t* block_number) {
     found_free_block = node;
     fs->superblock.free_blocks_head = index[0];
     if (write_superblock(fs->disk, &fs->superblock)) {
-      log_msg("sfs_fs_allocate_block() error writing superblock\n");
+      log_msg("error writing superblock");
       return -1;
     }
   }
@@ -582,13 +575,12 @@ int sfs_fs_free_block(void* arg, uint64_t block_number) {
   // case where there are no other nodes
   if (fs->superblock.free_blocks_head == 0) {
     if (block_write(fs->disk, block_number, tmp_block) != BLOCK_SIZE) {
-      log_msg("sfs_fs_free_block() error zeroing block %" PRIu64 "\n",
-              block_number);
+      log_msg("error zeroing block %" PRIu64, block_number);
       return -1;
     }
     fs->superblock.free_blocks_head = block_number;
     if (write_superblock(fs->disk, &fs->superblock)) {
-      log_msg("sfs_fs_free_block() error writing superblock\n");
+      log_msg("error writing superblock");
       return -1;
     }
     return 0;
@@ -598,7 +590,7 @@ int sfs_fs_free_block(void* arg, uint64_t block_number) {
   uint64_t prev_node = 0;
   while (node != 0) {
     if (block_read(fs->disk, node, tmp_block) != BLOCK_SIZE) {
-      log_msg("sfs_fs_free_block() error reading block %" PRIu64 "\n", node);
+      log_msg("error reading block %" PRIu64, node);
       return -1;
     }
 
@@ -607,8 +599,7 @@ int sfs_fs_free_block(void* arg, uint64_t block_number) {
       if (index[i] == 0) {
         index[i] = block_number;
         if (block_write(fs->disk, node, tmp_block) != BLOCK_SIZE) {
-          log_msg("sfs_fs_free_block() error writing block %" PRIu64 "\n",
-                  node);
+          log_msg("error writing block %" PRIu64, node);
           return -1;
         }
         return 0;
@@ -622,15 +613,14 @@ int sfs_fs_free_block(void* arg, uint64_t block_number) {
   // add |block_number| as a node at the end of the list
   index[0] = block_number;
   if (block_write(fs->disk, prev_node, tmp_block) != BLOCK_SIZE) {
-    log_msg("sfs_fs_free_block() error writing block %" PRIu64 "\n", prev_node);
+    log_msg("error writing block %" PRIu64, prev_node);
     return -1;
   }
 
   // zero the block of |block_number|
   memset(tmp_block, 0, BLOCK_SIZE);
   if (block_write(fs->disk, block_number, tmp_block) != BLOCK_SIZE) {
-    log_msg("sfs_fs_free_block() error zeroing block %" PRIu64 "\n",
-            block_number);
+    log_msg("error zeroing block %" PRIu64, block_number);
     return -1;
   }
 

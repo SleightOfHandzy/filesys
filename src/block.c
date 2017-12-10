@@ -27,7 +27,7 @@
  */
 int block_read(int fd, uint64_t block_num, void* block) {
   int ret = 0;
-  // log_msg("block_read() %" PRIu64 "\n", block_num);
+  // log_msg("block_read() %" PRIu64, block_num);
   ret = pread(fd, block, BLOCK_SIZE, block_num * BLOCK_SIZE);
   if (ret <= 0) {
     memset(block, 0, BLOCK_SIZE);
@@ -43,7 +43,7 @@ int block_read(int fd, uint64_t block_num, void* block) {
  */
 int block_write(int fd, uint64_t block_num, const void* block) {
   int ret = 0;
-  // log_msg("block_write() %" PRIu64 "\n", block_num);
+  // log_msg("block_write() %" PRIu64, block_num);
   ret = pwrite(fd, block, BLOCK_SIZE, block_num * BLOCK_SIZE);
   if (ret < 0) perror("block_write failed");
 

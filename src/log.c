@@ -40,20 +40,13 @@ FILE *log_open() {
   return logfile;
 }
 
-void log_msg(const char *format, ...) {
-  va_list ap;
-  va_start(ap, format);
-
-  vfprintf(SFS_DATA->logfile, format, ap);
-}
-
 // fuse context
-void log_fuse_context(struct fuse_context *context) {
-  log_msg("    context:\n");
+void log_fuse_context_impl(LOG_CONTEXT_PARAMS, struct fuse_context *context) {
+  log_msg_impl("struct fuse_context:", LOG_CONTEXT_ARGS);
 
   /** Pointer to the fuse object */
   //	struct fuse *fuse;
-  log_struct(context, fuse, "%08x");
+  log_struct(context, fuse, "%p");
 
   /** User ID of the calling process */
   //	uid_t uid;
@@ -69,8 +62,8 @@ void log_fuse_context(struct fuse_context *context) {
 
   /** Private filesystem data */
   //	void *private_data;
-  log_struct(context, private_data, "%08x");
-  log_struct(((struct sfs_state *)context->private_data), logfile, "%08x");
+  log_struct(context, private_data, "%p");
+  log_struct(((struct sfs_state *)context->private_data), logfile, "%p");
 
   /** Umask of the calling process (introduced in version 2.8) */
   //	mode_t umask;
@@ -80,36 +73,36 @@ void log_fuse_context(struct fuse_context *context) {
 // struct fuse_conn_info contains information about the socket
 // connection being used.  I don't actually use any of this
 // information in sfs
-void log_conn(struct fuse_conn_info *conn) {
-  log_msg("    conn:\n");
+void log_conn_impl(LOG_CONTEXT_PARAMS, struct fuse_conn_info *conn) {
+  log_msg_impl("struct fuse_conn_info:", LOG_CONTEXT_ARGS);
 
   /** Major version of the protocol (read-only) */
   // unsigned proto_major;
-  log_struct(conn, proto_major, "%d");
+  log_struct(conn, proto_major, "%u");
 
   /** Minor version of the protocol (read-only) */
   // unsigned proto_minor;
-  log_struct(conn, proto_minor, "%d");
+  log_struct(conn, proto_minor, "%u");
 
   /** Is asynchronous read supported (read-write) */
   // unsigned async_read;
-  log_struct(conn, async_read, "%d");
+  log_struct(conn, async_read, "%u");
 
   /** Maximum size of the write buffer */
   // unsigned max_write;
-  log_struct(conn, max_write, "%d");
+  log_struct(conn, max_write, "%u");
 
   /** Maximum readahead */
   // unsigned max_readahead;
-  log_struct(conn, max_readahead, "%d");
+  log_struct(conn, max_readahead, "%u");
 
   /** Capability flags, that the kernel supports */
   // unsigned capable;
-  log_struct(conn, capable, "%08x");
+  log_struct(conn, capable, "%u");
 
   /** Capability flags, that the filesystem wants to enable */
   // unsigned want;
-  log_struct(conn, want, "%08x");
+  log_struct(conn, want, "%u");
 
   /** For future use. */
   // unsigned reserved[23];
@@ -119,16 +112,16 @@ void log_conn(struct fuse_conn_info *conn) {
 // This dumps all the information in a struct fuse_file_info.  The struct
 // definition, and comments, come from /usr/include/fuse/fuse_common.h
 // Duplicated here for convenience.
-void log_fi(struct fuse_file_info *fi) {
-  log_msg("    fi:\n");
+void log_fi_impl(LOG_CONTEXT_PARAMS, struct fuse_file_info *fi) {
+  log_msg_impl("struct fuse_file_info:", LOG_CONTEXT_ARGS);
 
   /** Open flags.  Available in open() and release() */
   //	int flags;
-  log_struct(fi, flags, "0x%08x");
+  log_struct(fi, flags, "%d");
 
   /** Old file handle, don't use */
   //	unsigned long fh_old;
-  log_struct(fi, fh_old, "0x%08lx");
+  log_struct(fi, fh_old, "%lu");
 
   /** In case of a write operation indicates if this was caused by a
       writepage */
@@ -138,12 +131,12 @@ void log_fi(struct fuse_file_info *fi) {
   /** Can be filled in by open, to use direct I/O on this file.
       Introduced in version 2.4 */
   //	unsigned int keep_cache : 1;
-  log_struct(fi, direct_io, "%d");
+  log_struct(fi, direct_io, "%u");
 
   /** Can be filled in by open, to indicate, that cached file data
       need not be invalidated.  Introduced in version 2.4 */
   //	unsigned int flush : 1;
-  log_struct(fi, keep_cache, "%d");
+  log_struct(fi, keep_cache, "%u");
 
   /** Padding.  Do not use*/
   //	unsigned int padding : 29;
@@ -151,23 +144,23 @@ void log_fi(struct fuse_file_info *fi) {
   /** File handle.  May be filled in by filesystem in open().
       Available in all other file operations */
   //	uint64_t fh;
-  log_struct(fi, fh, "0x%016llx");
+  log_struct(fi, fh, "%" PRId64);
 
   /** Lock owner id.  Available in locking operations and flush */
   //  uint64_t lock_owner;
-  log_struct(fi, lock_owner, "0x%016llx");
+  log_struct(fi, lock_owner, "%" PRIu64);
 };
 
 // This dumps the info from a struct stat.  The struct is defined in
 // <bits/stat.h>; this is indirectly included from <fcntl.h>
-void log_stat(struct stat *si) {
-  log_msg("    si:\n");
+void log_stat_impl(LOG_CONTEXT_PARAMS, struct stat *si) {
+  log_msg_impl("struct stat:", LOG_CONTEXT_ARGS);
 
   //  dev_t     st_dev;     /* ID of device containing file */
-  log_struct(si, st_dev, "%lld");
+  log_struct_with_cast(si, st_dev, "%" PRId64, int64_t);
 
   //  ino_t     st_ino;     /* inode number */
-  log_struct(si, st_ino, "%lld");
+  log_struct_with_cast(si, st_ino, "%" PRId64, int64_t);
 
   //  mode_t    st_mode;    /* protection */
   log_struct(si, st_mode, "0%o");
@@ -182,13 +175,13 @@ void log_stat(struct stat *si) {
   log_struct(si, st_gid, "%d");
 
   //  dev_t     st_rdev;    /* device ID (if special file) */
-  log_struct(si, st_rdev, "%lld");
+  log_struct_with_cast(si, st_rdev, "%" PRId64, int64_t);
 
   //  off_t     st_size;    /* total size, in bytes */
   log_struct(si, st_size, "%lld");
 
   //  blksize_t st_blksize; /* blocksize for filesystem I/O */
-  log_struct(si, st_blksize, "%ld");
+  log_struct_with_cast(si, st_blksize, "%" PRId64, int64_t);
 
   //  blkcnt_t  st_blocks;  /* number of blocks allocated */
   log_struct(si, st_blocks, "%lld");
@@ -203,60 +196,15 @@ void log_stat(struct stat *si) {
   log_struct(si, st_ctime, "0x%08lx");
 }
 
-void log_statvfs(struct statvfs *sv) {
-  log_msg("    sv:\n");
+void log_inode_impl(LOG_CONTEXT_PARAMS, struct sfs_fs_inode *inode) {
+  log_msg_impl("si:", LOG_CONTEXT_ARGS);
 
-  //  unsigned long  f_bsize;    /* file system block size */
-  log_struct(sv, f_bsize, "%ld");
-
-  //  unsigned long  f_frsize;   /* fragment size */
-  log_struct(sv, f_frsize, "%ld");
-
-  //  fsblkcnt_t     f_blocks;   /* size of fs in f_frsize units */
-  log_struct(sv, f_blocks, "%lld");
-
-  //  fsblkcnt_t     f_bfree;    /* # free blocks */
-  log_struct(sv, f_bfree, "%lld");
-
-  //  fsblkcnt_t     f_bavail;   /* # free blocks for non-root */
-  log_struct(sv, f_bavail, "%lld");
-
-  //  fsfilcnt_t     f_files;    /* # inodes */
-  log_struct(sv, f_files, "%lld");
-
-  //  fsfilcnt_t     f_ffree;    /* # free inodes */
-  log_struct(sv, f_ffree, "%lld");
-
-  //  fsfilcnt_t     f_favail;   /* # free inodes for non-root */
-  log_struct(sv, f_favail, "%lld");
-
-  //  unsigned long  f_fsid;     /* file system ID */
-  log_struct(sv, f_fsid, "%ld");
-
-  //  unsigned long  f_flag;     /* mount flags */
-  log_struct(sv, f_flag, "0x%08lx");
-
-  //  unsigned long  f_namemax;  /* maximum filename length */
-  log_struct(sv, f_namemax, "%ld");
-}
-
-void log_utime(struct utimbuf *buf) {
-  log_msg("    buf:\n");
-
-  //    time_t actime;
-  log_struct(buf, actime, "0x%08lx");
-
-  //    time_t modtime;
-  log_struct(buf, modtime, "0x%08lx");
-}
-
-void log_inode(struct sfs_fs_inode *inode) {
   log_struct(inode, inumber, "%" PRIu64);
-  log_struct(inode, mode, "%" PRIo64);
+  log_struct_with_cast(inode, mode, "%" PRIo64, int64_t);
 
-  log_struct(inode, uid, "%" PRIu64);
-  log_struct(inode, gid, "%" PRIu64);
-  log_struct(inode, links, "%" PRIu64);
+  log_struct(inode, uid, "%" PRIu32);
+  log_struct(inode, gid, "%" PRIu32);
+  log_struct(inode, links, "%" PRIu32);
 
   log_struct(inode, access_time, "%" PRIu64);
   log_struct(inode, modified_time, "%" PRIu64);
