@@ -194,7 +194,8 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
   if (block_read(fs->disk, 0, superblock_data) != BLOCK_SIZE) {
     perror("block_read() error; couldn't read superblock");
     log_msg("sfs_fs_open_disk() couldn't read superblock\n");
-    goto fail;
+    free (fs);
+    return NULL;
   }
 
   // check the singature on the superblock
@@ -211,7 +212,8 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
           "false\n");
     }
     if (format_fs(fs->disk, &fs->superblock) != 0) {
-      goto fail;
+      free (fs);
+      return NULL;
     }
   } else {
     fs->superblock = *superblock;
@@ -223,13 +225,6 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
           asctime(localtime(&create_time)));
 
   return fs;
-
-fail:
-  if (fs->disk >= 0) {
-    close(fs->disk);
-  }
-  free(fs);
-  return NULL;
 }
 
 int sfs_fs_close(void* arg) {
