@@ -836,6 +836,9 @@ int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
+  log_msg("sfs_readdir(path=%s, buf=%p, filler, offset=%zu, fi=%p)\n", path,
+          buf, offset, fi);
+
   if (strcmp(path, "/") != 0) {
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
