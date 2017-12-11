@@ -36,8 +36,13 @@ struct sfs_fs_superblock {
 };
 
 #define SFS_NDIR_BLOCKS 12
-#define SFS_IND_BLOCK SFS_NDIR_BLOCKS       // TODO: implement
+
+#define SFS_IND_BLOCK SFS_NDIR_BLOCKS  // TODO: implement for directories
+// number of blocks in indirect block's index (only 1 indirect block)
+#define SFS_NIND_BLOCKS (1 * (BLOCK_SIZE / sizeof(uint64_t)))
+
 #define SFS_DIND_BLOCK (SFS_IND_BLOCK + 1)  // TODO: implement
+
 #define SFS_N_BLOCKS (SFS_DIND_BLOCK + 1)
 
 /**

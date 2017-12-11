@@ -221,7 +221,7 @@ void* sfs_fs_open_disk(int disk, bool maybe_format) {
   time_t create_time = (time_t)superblock->create_time;
   // asctime() has '\n' at the end
   char* t = asctime(localtime(&create_time));
-  t[strlen(t)-1] = '\0';
+  t[strlen(t) - 1] = '\0';
   log_msg("sfs_fs_open_disk() opened fs created at %s", t);
 
   return fs;
@@ -395,12 +395,50 @@ uint64_t sfs_fs_inode_get_block_number(void* fs, struct sfs_fs_inode* inode,
   assert(inode != NULL);
 
   if (iblock >= SFS_NDIR_BLOCKS) {
-    log_msg(
-        "sfs_fs_inode_get_block_number() indirection not yet implemented");
+    log_msg("sfs_fs_inode_get_block_number() indirection not yet implemented");
     return 0;
   }
 
   return inode->block_pointers[iblock];
+}
+
+/**
+ * reads the block number at |index| from |indirect_block_number| and writes to
+ * |block_number|
+ *
+ * if |create_if_empty| is specified, if |indirect_block_number| has a hole at
+ * |index|, a new block will be allocated and |indirect_block_number| will be
+ * updated
+ */
+static int read_from_indirect(struct filesystem* fs,
+                              uint64_t indirect_block_number, uint64_t index,
+                              bool create_if_empty, uint64_t* block_number) {
+  assert(fs != NULL);
+  assert(block_number != NULL);
+
+  if (indirect_block_number == 0) {
+    *block_number = 0;
+    return 0;
+  }
+
+  sfs_block_t index_block;
+  uint64_t* arr = (uint64_t*)index_block;
+  if (block_read(fs->disk, indirect_block_number, index_block) != BLOCK_SIZE) {
+    return -1;
+  }
+
+  if (create_if_empty && arr[index] == 0) {
+    if (sfs_fs_allocate_block(fs, &arr[index])) {
+      return -1;
+    }
+    if (block_write(fs->disk, indirect_block_number, index_block) !=
+        BLOCK_SIZE) {
+      return -1;
+    }
+  }
+
+  *block_number = arr[index];
+  return 0;
 }
 
 int sfs_fs_inode_block_read(void* arg, const struct sfs_fs_inode* inode,
@@ -411,12 +449,20 @@ int sfs_fs_inode_block_read(void* arg, const struct sfs_fs_inode* inode,
   assert(inode != NULL);
   assert(block != NULL);
 
-  if (iblock >= SFS_NDIR_BLOCKS) {
-    log_msg("indirection not yet implemented");
+  uint64_t block_number;
+  if (iblock < SFS_NDIR_BLOCKS) {
+    block_number = inode->block_pointers[iblock];
+  } else if (iblock < SFS_NDIR_BLOCKS + SFS_NIND_BLOCKS) {
+    if (read_from_indirect(fs, inode->block_pointers[SFS_IND_BLOCK],
+                           iblock - SFS_NDIR_BLOCKS, false, &block_number)) {
+      log_msg("error reading indirect block");
+      return -1;
+    }
+  } else {
+    log_msg("double indirection not implemented");
     return -1;
   }
 
-  uint64_t block_number = inode->block_pointers[iblock];
   if (block_number == 0) {
     memset(block, 0, BLOCK_SIZE);
     return 0;
@@ -450,22 +496,41 @@ int sfs_fs_inode_block_write(void* arg, struct sfs_fs_inode* inode,
   assert(inode != NULL);
   assert(block != NULL);
 
-  if (iblock >= SFS_NDIR_BLOCKS) {
-    log_msg("indirection not yet implemented");
+  uint64_t block_number;
+  if (iblock < SFS_NDIR_BLOCKS) {
+    block_number = inode->block_pointers[iblock];
+    if (block_number == 0) {
+      if (sfs_fs_allocate_block(fs, &block_number)) {
+        log_msg("could not allocate block");
+        return -1;
+      }
+      inode->block_pointers[iblock] = block_number;
+      if (sfs_fs_write_inode(fs, inode)) {
+        log_msg("could not update inode");
+        return -1;
+      }
+    }
+  } else if (iblock < SFS_NDIR_BLOCKS + SFS_NIND_BLOCKS) {
+    if (inode->block_pointers[SFS_IND_BLOCK] == 0) {
+      if (sfs_fs_allocate_block(fs, &inode->block_pointers[SFS_IND_BLOCK])) {
+        log_msg("error allocating indirect block index");
+        return -1;
+      }
+      inode->change_time = time(NULL);
+      if (sfs_fs_write_inode(fs, inode)) {
+        log_msg("error writing inode");
+        return -1;
+      }
+    }
+    // BUG: creating an indirect block should update change_time
+    if (read_from_indirect(fs, inode->block_pointers[SFS_IND_BLOCK],
+                           iblock - SFS_NDIR_BLOCKS, true, &block_number)) {
+      log_msg("error reading (or creating) indirect block");
+      return -1;
+    }
+  } else {
+    log_msg("double indirection not implemented");
     return -1;
-  }
-
-  uint64_t block_number = inode->block_pointers[iblock];
-  if (block_number == 0) {
-    if (sfs_fs_allocate_block(fs, &block_number)) {
-      log_msg("could not allocate block");
-      return -1;
-    }
-    inode->block_pointers[iblock] = block_number;
-    if (sfs_fs_write_inode(fs, inode)) {
-      log_msg("could not update inode");
-      return -1;
-    }
   }
 
   if (block_number < fs->superblock.inode_table_blocks + 1 ||
