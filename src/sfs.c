@@ -602,8 +602,8 @@ int sfs_read(const char *path, char *buf, size_t size, off_t offset,
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("path=\"%s\", buf=%p, size=%zu, offset=%zd, fi=%p", path,
-          buf, size, offset, fi);
+  log_msg("path=\"%s\", buf=%p, size=%zu, offset=%zd, fi=%p", path, buf, size,
+          offset, fi);
 
   if (size == 0) {
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
@@ -689,8 +689,8 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
   DECL_SFS_DATA(sfs_data);
   SFS_LOCK_OR_FAIL(sfs_data, -1);
 
-  log_msg("path=\"%s\", buf=%p, size=%zu, offset=%zd, fi=%p", path,
-          buf, size, offset, fi);
+  log_msg("path=\"%s\", buf=%p, size=%zu, offset=%zd, fi=%p", path, buf, size,
+          offset, fi);
 
   if (size == 0) {
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
@@ -699,14 +699,14 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 
   struct sfs_fd *fd = sfs_filedescriptor_get_from_fd(sfs_data->fd_pool, fi->fh);
   if (fd == NULL) {
-    log_msg("sfs_write() invalid filedescriptor %" PRIu64, fi->fh);
+    log_msg("invalid filedescriptor %" PRIu64, fi->fh);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
 
   struct sfs_fs_inode inode;
   if (sfs_fs_read_inode(sfs_data->fs, fd->inumber, &inode)) {
-    log_msg("sfs_write() error reading inode %" PRIu64, fd->inumber);
+    log_msg("error reading inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -716,7 +716,7 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
     inode.size = offset + size;
   }
   if (sfs_fs_write_inode(sfs_data->fs, &inode)) {
-    log_msg("sfs_write() error writing inode %" PRIu64, fd->inumber);
+    log_msg("error writing inode %" PRIu64, fd->inumber);
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
     return -1;
   }
@@ -753,9 +753,8 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 
     if (slice_a == 0 && slice_b != BLOCK_SIZE) {
       if (sfs_fs_inode_block_read(sfs_data->fs, &inode, iblock, tmp_block)) {
-        log_msg("sfs_write() error reading iblock %" PRIu64
-                " from inode %" PRIu64,
-                iblock, inode.inumber);
+        log_msg("error reading iblock %" PRIu64 " from inode %" PRIu64, iblock,
+                inode.inumber);
         SFS_UNLOCK_OR_FAIL(sfs_data, -1);
         return -1;
       }
@@ -763,8 +762,8 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
     }
 
     if (sfs_fs_inode_block_write(sfs_data->fs, &inode, iblock, source)) {
-      log_msg("sfs_write() error writing iblock %" PRIu64 " to inode %" PRIu64,
-              iblock, inode.inumber);
+      log_msg("error writing iblock %" PRIu64 " to inode %" PRIu64, iblock,
+              inode.inumber);
       SFS_UNLOCK_OR_FAIL(sfs_data, -1);
       return -1;
     }
