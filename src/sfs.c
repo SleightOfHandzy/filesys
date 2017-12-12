@@ -198,6 +198,45 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   return -ENOENT;
 }
 
+
+
+
+
+
+/**
+ * Traverse the given path through the inodes
+ */
+void traverse(char* path){
+	char* traversePath = strdup(path);
+	char currentDir[256];
+	int currDirIndex = 0;
+	for(int i =0; i < strlen(path); i++){
+		if(i == 0 && *(traversePath + i) == '/'){ //root inode operation
+			//printf("Parsing started. Current character = /\n");
+			//TODO:inode operations here
+			continue;
+		}
+		//printf("Parsing current character: %c \n",*(traversePath + i));
+		if(*(traversePath + i) == '/'){
+			currentDir[currDirIndex] = '\0'; //Null terminating the current directory parsed string
+			printf("Parsed string: %s\n",currentDir);
+			currDirIndex = 0;
+			memset(currentDir,0,256);
+			//TODO: Inode operations here
+
+		}
+		else{
+			currentDir[currDirIndex] = *(traversePath + i);
+			currDirIndex++;
+		}
+	}
+	printf("Last Directory/File: %s\n",currentDir);
+}
+
+
+
+
+
 /**
  * Create and open a file
  *
