@@ -198,94 +198,82 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
   return -ENOENT;
 }
 
-
-
 /**
  * Linked List "tokens" that represents each dir/file name in string File Path.
  * Made to make traversal a bit easier
  */
-
-typedef
-struct _Token{
-	char* token;
-	struct _Token* next;
+typedef struct _Token {
+  char *token;
+  struct _Token *next;
 } Token;
 
-
-void printTokens(Token* head){
-	Token* traversal = head;
-	printf("Printing Tokens\n");
-	while(traversal != NULL){
-		printf("%s -->",traversal->token);
-		traversal = traversal->next;
-	}
-
+void printTokens(Token *head) {
+  Token *traversal = head;
+  printf("Printing Tokens\n");
+  while (traversal != NULL) {
+    printf("%s -->", traversal->token);
+    traversal = traversal->next;
+  }
 }
 
-
-void freeTokens(Token* head){
-	Token* prev = head;
-	while(head != NULL){
-		head = head->next;
-		free(prev->token);
-		free(prev);
-	}
+void freeTokens(Token *head) {
+  Token *prev = head;
+  while (head != NULL) {
+    head = head->next;
+    free(prev->token);
+    free(prev);
+  }
 }
-
-
 
 /**
  * Traverse the given path and create tokens for each dir/file in the path
  */
-Token* createTokens(char* path){
-	Token* head = malloc(sizeof(Token));
-	head->next = NULL;
-	head->token = NULL;
-	Token* currToken = NULL;
-	char* traversePath = strdup(path);
-	char currentDir[256];
-	int currDirIndex = 0;
-	for(int i =0; i < strlen(path); i++){
-		if(i == 0 && *(traversePath + i) == '/'){ //root inode operation
-			//printf("Parsing started. Current character = /\n");
-			//TODO:inode operations here
-			head->token = malloc(2*sizeof(char));
-			head->token = "/";
-			currToken = head;
-			continue;
-		}
-		//printf("Parsing current character: %c \n",*(traversePath + i));
-		if(*(traversePath + i) == '/'){
-			currentDir[currDirIndex] = '\0'; //Null terminating the current directory parsed string
-			printf("Parsed string: %s\n",currentDir);
-			currToken->next = malloc(sizeof(Token));
-			currToken = currToken->next;
-			currToken->next = NULL;
-			currToken->token = malloc(sizeof(strlen(currentDir)));
-			strcpy(currToken->token, currentDir);
-			currDirIndex = 0;
-			memset(currentDir,0,256);
-			//TODO: Inode operations here
+Token *createTokens(char *path) {
+  Token *head = malloc(sizeof(Token));
+  head->next = NULL;
+  head->token = NULL;
+  Token *currToken = NULL;
+  char *traversePath = strdup(path);
+  char currentDir[256];
+  int currDirIndex = 0;
+  for (int i = 0; i < strlen(path); i++) {
+    if (i == 0 && *(traversePath + i) == '/') {  // root inode operation
+      // printf("Parsing started. Current character = /\n");
+      // TODO:inode operations here
+      head->token = malloc(2 * sizeof(char));
+      head->token = "/";
+      currToken = head;
+      continue;
+    }
+    // printf("Parsing current character: %c \n",*(traversePath + i));
+    if (*(traversePath + i) == '/') {
+      currentDir[currDirIndex] =
+          '\0';  // Null terminating the current directory parsed string
+      printf("Parsed string: %s\n", currentDir);
+      currToken->next = malloc(sizeof(Token));
+      currToken = currToken->next;
+      currToken->next = NULL;
+      currToken->token = malloc(sizeof(strlen(currentDir)));
+      strcpy(currToken->token, currentDir);
+      currDirIndex = 0;
+      memset(currentDir, 0, 256);
+      // TODO: Inode operations here
 
-		}
-		else{
-			currentDir[currDirIndex] = *(traversePath + i);
-			currDirIndex++;
-		}
-	}
+    } else {
+      currentDir[currDirIndex] = *(traversePath + i);
+      currDirIndex++;
+    }
+  }
 
-	printf("Last Directory/File: %s\n",currentDir);
-	currToken->next = malloc(sizeof(Token));
-	currToken = currToken->next;
-	currToken->next = NULL;
-	currToken->token = malloc(sizeof(strlen(currentDir)));
-	strcpy(currToken->token, currentDir);
-	printTokens(head);
-	return head;
+  printf("Last Directory/File: %s\n", currentDir);
+  currToken->next = malloc(sizeof(Token));
+  currToken = currToken->next;
+  currToken->next = NULL;
+  currToken->token = malloc(sizeof(strlen(currentDir)));
+  strcpy(currToken->token, currentDir);
+  printTokens(head);
+  return head;
 }
-
-
-
 
 /**
  * Create and open a file
@@ -887,11 +875,89 @@ int sfs_rmdir(const char *path) {
  * Introduced in version 2.3
  */
 int sfs_opendir(const char *path, struct fuse_file_info *fi) {
+  DECL_SFS_DATA(sfs_data);
+  SFS_LOCK_OR_FAIL(sfs_data, -1);
+
   log_msg("path=\"%s\", fi=%p", path, fi);
 
   if (strcmp(path, "/") != 0) {
+    log_msg("returning ENOENT");
     return -ENOENT;
   }
+
+  // start at the root directory's inode
+  struct sfs_fs_inode directory;
+
+  // put root dir in &directory
+  if (sfs_dir_root(sfs_data->fs, &directory)) {
+    log_msg("couldn't get root inode");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -ENOENT;  // technically "/" couldn't be found?
+  }
+
+  // create linked list of tokens
+  Token *head = createTokens(strdup(path));
+  Token *currToken = head;
+
+  // set up iterators to nav to directory
+  void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
+  struct sfs_dir_entry *direntry;
+  uint64_t found_inumber = 0;
+
+  while ((iter = sfs_dir_iternext(iter, &direntry, NULL)) != NULL) {
+    if (strcmp(direntry->name, currToken->token) == 0) {
+      found_inumber = direntry->inumber;
+      currToken = currToken->next;
+
+      if (currToken == NULL) {
+        // FOUND directory
+        if (S_ISDIR(iter->inode->mode) { }
+        else {
+          log_msg("attempting open in fake directory");
+          return -ENOENT;  // technically "/" couldn't be found?
+        }
+
+        // update the link count
+        if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &directory)) {
+          log_msg("error opening inode %" PRIu64, found_inumber);
+          SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+          return -1;
+        }
+        ++directory.links;
+        directory.change_time = time(NULL);
+        if (sfs_fs_write_inode(sfs_data->fs, &directory)) {
+          log_msg("error writing inode %" PRIu64, found_inumber);
+          SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+          return -1;
+        }
+
+        break;
+      }
+
+      struct sfs_fs_inode N;
+      &N = iter->inode;
+      iter = sfs_dir_iterate(sfs_data->fs, &N);
+    }
+  }
+
+  freeTokens(head);
+
+  // allocate new file descriptor for our newly opened file
+  struct sfs_fd *fd = sfs_filedescriptor_allocate(sfs_data->fd_pool);
+  if (fd == NULL) {
+    // should fail more gracefully
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -ENOMEM;
+  }
+  fd->inumber = directory.inumber;
+  fd->flags = fi->flags;
+  log_msg("file_descriptor:");
+  log_struct(fd, fd, "%d");
+  log_struct(fd, inumber, "%" PRIu64);
+  log_struct(fd, flags, "%" PRIu64);
+  fi->fh = fd->fd;
+
+  SFS_UNLOCK_OR_FAIL(sfs_data, -1);
 
   return 0;
 }
@@ -972,7 +1038,78 @@ int sfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
  *
  * Introduced in version 2.3
  */
-int sfs_releasedir(const char *path, struct fuse_file_info *fi) { return 0; }
+int sfs_releasedir(const char *path, struct fuse_file_info *fi) {
+  DECL_SFS_DATA(sfs_data);
+  SFS_LOCK_OR_FAIL(sfs_data, -1);
+
+  log_msg("path=\"%s\", fi=%p", path, fi);
+
+  if (strcmp(path, "/") != 0) {
+    log_msg("returning ENOENT");
+    return -ENOENT;
+  }
+
+  // start at the root directory's inode
+  struct sfs_fs_inode directory;
+
+  // put root dir in &directory
+  if (sfs_dir_root(sfs_data->fs, &directory)) {
+    log_msg("couldn't get root inode");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -ENOENT;  // technically "/" couldn't be found?
+  }
+
+  // create linked list of tokens
+  Token *head = createTokens(strdup(path));
+  Token *currToken = head;
+
+  // set up iterators to nav to directory
+  void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
+  struct sfs_dir_entry *direntry;
+  uint64_t found_inumber = 0;
+
+  while ((iter = sfs_dir_iternext(iter, &direntry, NULL)) != NULL) {
+    if (strcmp(direntry->name, currToken->token) == 0) {
+      found_inumber = direntry->inumber;
+      currToken = currToken->next;
+
+      if (currToken == NULL) {
+        // FOUND directory
+          if (S_ISDIR(iter->inode->mode) { // sanity check }
+
+          else {
+            log_msg("attempting close fake directory");
+            return -ENOENT;  // technically "/" couldn't be found?
+          }
+
+          // update the link count
+          if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &directory)) {
+            log_msg("error opening inode %" PRIu64, found_inumber);
+            SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+            return -1;
+          }
+          --directory.links;
+          directory.change_time = time(NULL);
+          if (sfs_fs_write_inode(sfs_data->fs, &directory)) {
+            log_msg("error writing inode %" PRIu64, found_inumber);
+            SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+            return -1;
+          }
+
+          break;
+        }
+
+        struct sfs_fs_inode N;
+        &N = iter->inode;
+        iter = sfs_dir_iterate(sfs_data->fs, &N);
+      }
+    }
+  }
+
+  freeTokens(head);
+
+  return 0;
+}
 
 struct fuse_operations sfs_oper = {.init = sfs_init,
                                    .destroy = sfs_destroy,
