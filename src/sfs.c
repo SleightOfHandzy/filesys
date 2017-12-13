@@ -200,13 +200,48 @@ int sfs_getattr(const char *path, struct stat *statbuf) {
 
 
 
+/**
+ * Linked List "tokens" that represents each dir/file name in string File Path.
+ * Made to make traversal a bit easier
+ */
+
+typedef
+struct _Token{
+	char* token;
+	struct _Token* next;
+} Token;
+
+
+void printTokens(Token* head){
+	Token* traversal = head;
+	printf("Printing Tokens\n");
+	while(traversal != NULL){
+		printf("%s -->",traversal->token);
+		traversal = traversal->next;
+	}
+
+}
+
+
+void freeTokens(Token* head){
+	Token* prev = head;
+	while(head != NULL){
+		head = head->next;
+		free(prev->token);
+		free(prev);
+	}
+}
 
 
 
 /**
- * Traverse the given path through the inodes
+ * Traverse the given path and create tokens for each dir/file in the path
  */
-void traverse(char* path){
+Token* createTokens(char* path){
+	Token* head = malloc(sizeof(Token));
+	head->next = NULL;
+	head->token = NULL;
+	Token* currToken = NULL;
 	char* traversePath = strdup(path);
 	char currentDir[256];
 	int currDirIndex = 0;
@@ -214,12 +249,20 @@ void traverse(char* path){
 		if(i == 0 && *(traversePath + i) == '/'){ //root inode operation
 			//printf("Parsing started. Current character = /\n");
 			//TODO:inode operations here
+			head->token = malloc(2*sizeof(char));
+			head->token = "/";
+			currToken = head;
 			continue;
 		}
 		//printf("Parsing current character: %c \n",*(traversePath + i));
 		if(*(traversePath + i) == '/'){
 			currentDir[currDirIndex] = '\0'; //Null terminating the current directory parsed string
 			printf("Parsed string: %s\n",currentDir);
+			currToken->next = malloc(sizeof(Token));
+			currToken = currToken->next;
+			currToken->next = NULL;
+			currToken->token = malloc(sizeof(strlen(currentDir)));
+			strcpy(currToken->token, currentDir);
 			currDirIndex = 0;
 			memset(currentDir,0,256);
 			//TODO: Inode operations here
@@ -230,9 +273,16 @@ void traverse(char* path){
 			currDirIndex++;
 		}
 	}
-	printf("Last Directory/File: %s\n",currentDir);
-}
 
+	printf("Last Directory/File: %s\n",currentDir);
+	currToken->next = malloc(sizeof(Token));
+	currToken = currToken->next;
+	currToken->next = NULL;
+	currToken->token = malloc(sizeof(strlen(currentDir)));
+	strcpy(currToken->token, currentDir);
+	printTokens(head);
+	return head;
+}
 
 
 
