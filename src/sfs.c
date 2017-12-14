@@ -908,14 +908,14 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
   while ((iter = sfs_dir_iternext(iter, &direntry, &entry)) != NULL) {
     if (strcmp(direntry->name, currToken->token) == 0) {
       found_inumber = direntry->inumber;
+      sfs_dir_iterclose(iter);
       currToken = currToken->next;
 
       if (currToken == NULL) {
         // FOUND directory
-        if (S_ISDIR(entry.mode)) {
-        } else {
-          log_msg("attempting open in fake directory");
-          return -ENOENT;  // technically "/" couldn't be found?
+        if (!S_ISDIR(entry.mode)) {
+          log_msg("ENOTDIR (path is not a directory)");
+          return -ENOTDIR;
         }
 
         // update the link count
@@ -935,10 +935,7 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
         break;
       }
 
-      // iterclose here
-
       directory = entry;
-
       iter = sfs_dir_iterate(sfs_data->fs, &directory);
     }
   }
