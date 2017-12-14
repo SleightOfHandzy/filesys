@@ -895,9 +895,18 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
     return -ENOENT;  // technically "/" couldn't be found?
   }
 
-  // create linked list of tokens
-  Token *head = createTokens(strdup(path));
-  Token *currToken = head;
+  // tokenize the path
+  char path_buf[PATH_MAX];
+  strncpy(path_buf, path, PATH_MAX);
+  char *path_tok = path_buf;
+  char *tok = path_buf;
+
+  // check that the path starts with "/"
+  tok = strsep(&path_tok, "/");
+  if (*tok != '\0') {
+    log_msg("path does not start with /");
+    return -1;
+  }
 
   // set up iterators to nav to directory
   void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
@@ -906,12 +915,12 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
   struct sfs_fs_inode entry;
 
   while ((iter = sfs_dir_iternext(iter, &direntry, &entry)) != NULL) {
-    if (strcmp(direntry->name, currToken->token) == 0) {
+    if (strcmp(direntry->name, tok) == 0) {
       found_inumber = direntry->inumber;
       sfs_dir_iterclose(iter);
-      currToken = currToken->next;
+      tok = strsep(&path_tok, "/");
 
-      if (currToken == NULL) {
+      if (tok == NULL) {
         // FOUND directory
         if (!S_ISDIR(entry.mode)) {
           log_msg("ENOTDIR (path is not a directory)");
@@ -939,8 +948,6 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
       iter = sfs_dir_iterate(sfs_data->fs, &directory);
     }
   }
-
-  freeTokens(head);
 
   // allocate new file descriptor for our newly opened file
   struct sfs_fd *fd = sfs_filedescriptor_allocate(sfs_data->fd_pool);
