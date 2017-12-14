@@ -891,54 +891,38 @@ int sfs_mkdir(const char *path, mode_t mode) {
         return -1;
       }
 
-      // up the link count
-      if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &newdir)) {
-        log_msg("error opening inode %" PRIu64, found_inumber);
-        SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-        return -1;
-      }
-      ++newdir.links;
-      newdir.change_time = time(NULL);
-      if (sfs_fs_write_inode(sfs_data->fs, &newdir)) {
-        log_msg("error writing inode %" PRIu64, found_inumber);
-        SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-        return -1;
-      }
-
-      break;
+      return -EEXIST;
     }
   }
 
   // `inode` still represents the directory here
-  if (found_inumber == 0) {
-    if (sfs_fs_inode_allocate(sfs_data->fs, &newdir)) {
-      SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-      return -EDQUOT;  // no more inodes
-    }
-    found_inumber = newdir.inumber;
-    newdir.mode = (((1 << 12) - 1) & mode & (~FUSE_CALLER_UMASK));
-    newdir.mode |= S_IFREG;  // is a regular file
-    newdir.uid = FUSE_CALLER_UID;
-    // depends on gid bit in parent directory (see man open(2))
-    newdir.gid = (directory.mode & S_ISGID) ? newdir.gid : FUSE_CALLER_GID;
-    newdir.links = 1;  // jon said so
-    newdir.access_time = time(NULL);
-    newdir.modified_time = time(NULL);
-    newdir.change_time = time(NULL);
-    newdir.size = 0;
-    for (int i = 0; i < SFS_N_BLOCKS; ++i) {
-      newdir.block_pointers[i] = 0;
-    }
-    if (sfs_fs_write_inode(sfs_data->fs, &newdir)) {
-      log_msg("error writing inode");
-      SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-      return -1;
-    }
-    if (sfs_dir_link(sfs_data->fs, &directory, name, &newdir)) {
-      log_msg("error linking file to directory");
-      SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-      return -1;
-    }
+  if (sfs_fs_inode_allocate(sfs_data->fs, &newdir)) {
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -EDQUOT;  // no more inodes
+  }
+  found_inumber = newdir.inumber;
+  newdir.mode = (((1 << 12) - 1) & mode & (~FUSE_CALLER_UMASK));
+  newdir.mode |= S_IFDIR;  // is a regular file
+  newdir.uid = FUSE_CALLER_UID;
+  // depends on gid bit in parent directory (see man open(2))
+  newdir.gid = (directory.mode & S_ISGID) ? newdir.gid : FUSE_CALLER_GID;
+  newdir.links = 1;  // jon said so
+  newdir.access_time = time(NULL);
+  newdir.modified_time = time(NULL);
+  newdir.change_time = time(NULL);
+  newdir.size = 0;
+  for (int i = 0; i < SFS_N_BLOCKS; ++i) {
+    newdir.block_pointers[i] = 0;
+  }
+  if (sfs_fs_write_inode(sfs_data->fs, &newdir)) {
+    log_msg("error writing inode");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -1;
+  }
+  if (sfs_dir_link(sfs_data->fs, &directory, name, &newdir)) {
+    log_msg("error linking file to directory");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -1;
   }
 
   SFS_UNLOCK_OR_FAIL(sfs_data, -1);
