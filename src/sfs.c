@@ -903,16 +903,17 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
   void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
   struct sfs_dir_entry *direntry;
   uint64_t found_inumber = 0;
+  struct sfs_fs_inode entry;
 
-  while ((iter = sfs_dir_iternext(iter, &direntry, NULL)) != NULL) {
+  while ((iter = sfs_dir_iternext(iter, &direntry, &entry)) != NULL) {
     if (strcmp(direntry->name, currToken->token) == 0) {
       found_inumber = direntry->inumber;
       currToken = currToken->next;
 
       if (currToken == NULL) {
         // FOUND directory
-        if (S_ISDIR(iter->inode->mode) { }
-        else {
+        if (S_ISDIR(entry.mode)) {
+        } else {
           log_msg("attempting open in fake directory");
           return -ENOENT;  // technically "/" couldn't be found?
         }
@@ -934,9 +935,11 @@ int sfs_opendir(const char *path, struct fuse_file_info *fi) {
         break;
       }
 
-      struct sfs_fs_inode N;
-      &N = iter->inode;
-      iter = sfs_dir_iterate(sfs_data->fs, &N);
+      // iterclose here
+
+      directory = entry;
+
+      iter = sfs_dir_iterate(sfs_data->fs, &directory);
     }
   }
 
@@ -1044,70 +1047,40 @@ int sfs_releasedir(const char *path, struct fuse_file_info *fi) {
 
   log_msg("path=\"%s\", fi=%p", path, fi);
 
-  if (strcmp(path, "/") != 0) {
-    log_msg("returning ENOENT");
-    return -ENOENT;
-  }
-
-  // start at the root directory's inode
-  struct sfs_fs_inode directory;
-
-  // put root dir in &directory
-  if (sfs_dir_root(sfs_data->fs, &directory)) {
-    log_msg("couldn't get root inode");
+  // look up the filedescriptor data from the file handle number
+  struct sfs_fd *fd = sfs_filedescriptor_get_from_fd(sfs_data->fd_pool, fi->fh);
+  if (fd == NULL) {
+    log_msg("invalid file descriptor");
     SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-    return -ENOENT;  // technically "/" couldn't be found?
+    return -1;
+  }
+  log_msg("file_descriptor:");
+  log_struct(fd, fd, "%d");
+  log_struct(fd, inumber, "%" PRIu64);
+  log_struct(fd, flags, "%" PRIu64);
+
+  // decrease the link count (deallocate inode if 0 links)
+  struct sfs_fs_inode inode;
+  log_msg("inumber %" PRIu64, fd->inumber);
+  if (sfs_fs_read_inode(sfs_data->fs, fd->inumber, &inode)) {
+    log_msg("error reading inode %" PRIu64, fd->inumber);
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -1;
   }
 
-  // create linked list of tokens
-  Token *head = createTokens(strdup(path));
-  Token *currToken = head;
+  --inode.links;
+  inode.change_time = time(NULL);
 
-  // set up iterators to nav to directory
-  void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
-  struct sfs_dir_entry *direntry;
-  uint64_t found_inumber = 0;
-
-  while ((iter = sfs_dir_iternext(iter, &direntry, NULL)) != NULL) {
-    if (strcmp(direntry->name, currToken->token) == 0) {
-      found_inumber = direntry->inumber;
-      currToken = currToken->next;
-
-      if (currToken == NULL) {
-        // FOUND directory
-          if (S_ISDIR(iter->inode->mode) { // sanity check }
-
-          else {
-            log_msg("attempting close fake directory");
-            return -ENOENT;  // technically "/" couldn't be found?
-          }
-
-          // update the link count
-          if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &directory)) {
-            log_msg("error opening inode %" PRIu64, found_inumber);
-            SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-            return -1;
-          }
-          --directory.links;
-          directory.change_time = time(NULL);
-          if (sfs_fs_write_inode(sfs_data->fs, &directory)) {
-            log_msg("error writing inode %" PRIu64, found_inumber);
-            SFS_UNLOCK_OR_FAIL(sfs_data, -1);
-            return -1;
-          }
-
-          break;
-        }
-
-        struct sfs_fs_inode N;
-        &N = iter->inode;
-        iter = sfs_dir_iterate(sfs_data->fs, &N);
-      }
-    }
+  if (sfs_fs_write_inode(sfs_data->fs, &inode)) {
+    log_msg("error writing inode %" PRIu64, fd->inumber);
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -1;
   }
 
-  freeTokens(head);
+  // return the filedescriptor to the pool
+  sfs_filedescriptor_free(sfs_data->fd_pool, fd);
 
+  SFS_UNLOCK_OR_FAIL(sfs_data, -1);
   return 0;
 }
 
