@@ -852,19 +852,133 @@ int sfs_write(const char *path, const char *buf, size_t size, off_t offset,
 
 /** Create a directory */
 int sfs_mkdir(const char *path, mode_t mode) {
-  log_msg("path=\"%s\", mode=0%3o", path, mode);
+  DECL_SFS_DATA(sfs_data);
+  SFS_LOCK_OR_FAIL(sfs_data, -1);
+
+  log_msg("path=\"%s\", mode=0%03o", path, mode);
+
+  // TODO: tokenize pathnames
+  char *geazy = (char *)path;
+  char *name = basename(geazy);
+
+  // start at the root directory's inode
+  struct sfs_fs_inode directory;
+  struct sfs_fs_inode newdir;
+  if (sfs_dir_root(sfs_data->fs, &directory)) {
+    log_msg("couldn't get root inode");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -ENOENT;  // technically "/" couldn't be found?
+  }
+
+  // TODO: navigate down the directory tree
+
+  // search to see if `name` already exists in the directory
+  uint64_t found_inumber = 0;
+  void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
+  if (iter == NULL) {
+    log_msg("sfs_dir_iterate failed");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -1;
+  }
+  struct sfs_dir_entry *direntry;
+  while ((iter = sfs_dir_iternext(iter, &direntry, &newdir)) != NULL) {
+    if (strncmp(direntry->name, name, 256) == 0) {
+      found_inumber = direntry->inumber;
+
+      if (sfs_dir_iterclose(iter)) {
+        log_msg("sfs_dir_iterclose failed");
+        SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+        return -1;
+      }
+
+      // up the link count
+      if (sfs_fs_read_inode(sfs_data->fs, found_inumber, &newdir)) {
+        log_msg("error opening inode %" PRIu64, found_inumber);
+        SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+        return -1;
+      }
+      ++newdir.links;
+      newdir.change_time = time(NULL);
+      if (sfs_fs_write_inode(sfs_data->fs, &newdir)) {
+        log_msg("error writing inode %" PRIu64, found_inumber);
+        SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+        return -1;
+      }
+
+      break;
+    }
+  }
+
+  // `inode` still represents the directory here
+  if (found_inumber == 0) {
+    if (sfs_fs_inode_allocate(sfs_data->fs, &newdir)) {
+      SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+      return -EDQUOT;  // no more inodes
+    }
+    found_inumber = newdir.inumber;
+    newdir.mode = (((1 << 12) - 1) & mode & (~FUSE_CALLER_UMASK));
+    newdir.mode |= S_IFREG;  // is a regular file
+    newdir.uid = FUSE_CALLER_UID;
+    // depends on gid bit in parent directory (see man open(2))
+    newdir.gid = (directory.mode & S_ISGID) ? newdir.gid : FUSE_CALLER_GID;
+    newdir.links = 1;  // jon said so
+    newdir.access_time = time(NULL);
+    newdir.modified_time = time(NULL);
+    newdir.change_time = time(NULL);
+    newdir.size = 0;
+    for (int i = 0; i < SFS_N_BLOCKS; ++i) {
+      newdir.block_pointers[i] = 0;
+    }
+    if (sfs_fs_write_inode(sfs_data->fs, &newdir)) {
+      log_msg("error writing inode");
+      SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+      return -1;
+    }
+    if (sfs_dir_link(sfs_data->fs, &directory, name, &newdir)) {
+      log_msg("error linking file to directory");
+      SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+      return -1;
+    }
+  }
+
+  SFS_UNLOCK_OR_FAIL(sfs_data, -1);
   return 0;
 }
 
 /** Remove a directory */
 int sfs_rmdir(const char *path) {
+  DECL_SFS_DATA(sfs_data);
+  SFS_LOCK_OR_FAIL(sfs_data, -1);
+
   log_msg("path=\"%s\"", path);
 
   if (strcmp(path, "/") == 0) {
     return -1;
   }
 
-  return 0;
+  // start at the root directory's inode
+  struct sfs_fs_inode directory;
+
+  // put root dir in &directory
+  if (sfs_dir_root(sfs_data->fs, &directory)) {
+    log_msg("couldn't get root inode");
+    SFS_UNLOCK_OR_FAIL(sfs_data, -1);
+    return -ENOENT;  // technically "/" couldn't be found?
+  }
+
+  // set up iterators to nav to directory
+  void *iter = sfs_dir_iterate(sfs_data->fs, &directory);
+  struct sfs_dir_entry *direntry;
+
+  if ((iter = sfs_dir_iternext(iter, &direntry, NULL)) != NULL) {
+    sfs_dir_iterclose(iter);
+    return -ENOTEMPTY;
+  }
+
+  else {
+    sfs_unlink(path);
+    return 0;
+  }
 }
 
 /** Open directory
